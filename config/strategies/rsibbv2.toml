@@ -1,0 +1,14 @@
+interval = 14
+weights = [0.3,0.2,0.2,0.1]
+#[A, B, C, D]
+
+[bbands]
+TimePeriod = 21
+NbDevUp = 2
+NbDevDn = 2
+
+[thresholds]
+low = 40
+high = 60
+persistence = 4
+

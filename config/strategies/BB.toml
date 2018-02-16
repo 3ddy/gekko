@@ -1,0 +1,5 @@
+sellpercent = 0.98
+[bbands]
+TimePeriod = 20
+NbDevUp = 2.25
+NbDevDn = 2

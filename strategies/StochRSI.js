@@ -17,7 +17,10 @@ var method = {};
 // prepare everything our method needs
 method.init = function() {
   this.interval = this.settings.interval;
-
+  this.lastBuy = {
+    price: 0,
+    buyevent: false
+  };
   this.trend = {
     direction: 'none',
     duration: 0,
@@ -30,22 +33,22 @@ method.init = function() {
   // define the indicators we need
   this.addIndicator('rsi', 'RSI', { interval: this.interval });
 
-	this.RSIhistory = [];
+  this.RSIhistory = [];
 }
 
 // what happens on every new candle?
 method.update = function(candle) {
-	this.rsi = this.indicators.rsi.result;
+  this.rsi = this.indicators.rsi.result;
 
-	this.RSIhistory.push(this.rsi);
+  this.RSIhistory.push(this.rsi);
 
-	if(_.size(this.RSIhistory) > this.interval)
-		// remove oldest RSI value
-		this.RSIhistory.shift();
+  if(_.size(this.RSIhistory) > this.interval)
+    // remove oldest RSI value
+    this.RSIhistory.shift();
 
-	this.lowestRSI = _.min(this.RSIhistory);
-	this.highestRSI = _.max(this.RSIhistory);
-	this.stochRSI = ((this.rsi - this.lowestRSI) / (this.highestRSI - this.lowestRSI)) * 100;
+  this.lowestRSI = _.min(this.RSIhistory);
+  this.highestRSI = _.max(this.RSIhistory);
+  this.stochRSI = ((this.rsi - this.lowestRSI) / (this.highestRSI - this.lowestRSI)) * 100;
 }
 
 // for debugging purposes log the last
@@ -55,66 +58,78 @@ method.log = function() {
 
   log.debug('calculated StochRSI properties for candle:');
   log.debug('\t', 'rsi:', this.rsi.toFixed(digits));
-	log.debug("StochRSI min:\t\t" + this.lowestRSI.toFixed(digits));
-	log.debug("StochRSI max:\t\t" + this.highestRSI.toFixed(digits));
-	log.debug("StochRSI Value:\t\t" + this.stochRSI.toFixed(2));
+  log.debug("StochRSI min:\t\t" + this.lowestRSI.toFixed(digits));
+  log.debug("StochRSI max:\t\t" + this.highestRSI.toFixed(digits));
+  log.debug("StochRSI Value:\t\t" + this.stochRSI.toFixed(2));
 }
 
-method.check = function() {
-	if(this.stochRSI > this.settings.thresholds.high) {
-		// new trend detected
-		if(this.trend.direction !== 'high')
-			this.trend = {
-				duration: 0,
-				persisted: false,
-				direction: 'high',
-				adviced: false
-			};
+method.check = function(candle) {
+  var price = candle.close;
+  if(price < this.lastBuy.price*this.settings.sellpercent && this.lastBuy.buyevent) {
+    log.debug('Price is lower then last buy price.\nprice: ', price,
+      '\nlastBuyPrice: ', this.lastBuy.price,
+      '\ncalculated threshold:', price*this.settings.sellpercent,'\n');
+    this.advice('short');
+    this.lastBuy.buyevent = false;
+    this.lastBuy.price = 0;
+  } else if(this.stochRSI > this.settings.thresholds.high) {
+    // new trend detected
+    if(this.trend.direction !== 'high')
+      this.trend = {
+        duration: 0,
+        persisted: false,
+        direction: 'high',
+        adviced: false
+      };
 
-		this.trend.duration++;
+    this.trend.duration++;
 
-		log.debug('In high since', this.trend.duration, 'candle(s)');
+    log.debug('In high since', this.trend.duration, 'candle(s)');
 
-		if(this.trend.duration >= this.settings.thresholds.persistence)
-			this.trend.persisted = true;
+    if(this.trend.duration >= this.settings.thresholds.persistence)
+      this.trend.persisted = true;
 
-		if(this.trend.persisted && !this.trend.adviced) {
-			this.trend.adviced = true;
-			this.advice('short');
-		} else
-			this.advice();
+    if(this.trend.persisted && !this.trend.adviced) {
+      this.trend.adviced = true;
+      this.advice('short');
+      this.lastBuy.price = 0;
+      this.lastBuy.buyevent = false;
+    } else
+      this.advice();
 
-	} else if(this.stochRSI < this.settings.thresholds.low) {
+  } else if(this.stochRSI < this.settings.thresholds.low) {
 
-		// new trend detected
-		if(this.trend.direction !== 'low')
-			this.trend = {
-				duration: 0,
-				persisted: false,
-				direction: 'low',
-				adviced: false
-			};
+    // new trend detected
+    if(this.trend.direction !== 'low')
+      this.trend = {
+        duration: 0,
+        persisted: false,
+        direction: 'low',
+        adviced: false
+      };
 
-		this.trend.duration++;
+    this.trend.duration++;
 
-		log.debug('In low since', this.trend.duration, 'candle(s)');
+    log.debug('In low since', this.trend.duration, 'candle(s)');
 
-		if(this.trend.duration >= this.settings.thresholds.persistence)
-			this.trend.persisted = true;
+    if(this.trend.duration >= this.settings.thresholds.persistence)
+      this.trend.persisted = true;
 
-		if(this.trend.persisted && !this.trend.adviced) {
-			this.trend.adviced = true;
-			this.advice('long');
-		} else
-			this.advice();
+    if(this.trend.persisted && !this.trend.adviced) {
+      this.trend.adviced = true;
+      this.advice('long');
+      this.lastBuy.price = candle.close;
+      this.lastBuy.buyevent = true;
+    } else
+      this.advice();
 
-	} else {
-		// trends must be on consecutive candles
-		this.trend.duration = 0;
-		log.debug('In no trend');
+  } else {
+    // trends must be on consecutive candles
+    this.trend.duration = 0;
+    log.debug('In no trend');
 
-		this.advice();
-	}
+    this.advice();
+  }
 
 }
 

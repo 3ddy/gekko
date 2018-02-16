@@ -1,5 +1,5 @@
 interval = 3
-
+sellpercent = 0.98
 [thresholds]
 low = 20
 high = 80
