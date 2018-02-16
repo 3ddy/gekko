@@ -1,0 +1,20 @@
+short = 8
+long = 17
+signal = 9
+interval = 14
+lower_distance = 0.00001
+sellpercent = 0.98
+
+[bbands]
+TimePeriod = 20
+NbDevUp = 2
+NbDevDn = 2
+persistence_upper = 10
+persistence_lower = 10
+
+[thresholds]
+low = 20
+high = 80
+down = -0.00001
+up = 0.00001
+persistence = 2

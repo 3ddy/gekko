@@ -1,0 +1,25 @@
+weights = [0.3,0.2,0.2,0.1]
+#[A, B, C, D]
+
+candles = 5
+
+[fstochrsi]
+#for RSI
+interval = 14
+#for Stoch
+stoch = 9
+#for %K
+k = 3
+#for %D
+d = 3
+
+[bbands]
+TimePeriod = 21
+NbDevUp = 2
+NbDevDn = 2
+
+[thresholds]
+low = 40
+high = 60
+persistence = 4
+
