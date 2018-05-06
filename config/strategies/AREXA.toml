@@ -1,0 +1,37 @@
+#warmup period 390 1 min candles
+[fstochrsi]
+interval = 14
+stoch = 9
+k = 3
+d = 3
+
+[superk]
+min5 = 3
+min15 = 3
+
+[thresholds]
+timeout = 7
+sell5min = 75
+sell15min = 45
+sell15top = 90
+sellzone5 = [15, 70]
+sellzone15 = [50, 90]
+nosell15 = [80, 90]
+buy5min = 10
+buy5min15 = 20
+buy15min = 5
+buy15min5 = 20
+buy5zuh = 25
+buy15zuh = 55
+nobuy15 = 85
+synczone1 = [10, 30]
+synczone2 = [50, 70]
+synczone3 = [30, 50]
+synczone4 = [70, 90]
+synckis = 5
+fordav5 = 5
+fordav15 = 5
+deathzone5 = [40,60]
+deathzone15 = [30,40]
+heavenzone5 = [70,80]
+heavenzone15 = [40,80]

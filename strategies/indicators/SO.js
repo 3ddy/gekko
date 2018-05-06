@@ -45,9 +45,9 @@ Indicator.prototype.update = function(candle) {
   if(_.size(this.RSIhistory) > this.weight) {
     this.RSIhistory.shift();
   }
-  if(this.age < this.interval + this.weight) {
+  if(this.age < Number.parseInt(this.interval) + Number.parseInt(this.weight)) {
     //Waiting for the history fill up
-    //log.debug("--------SO return: ",this.age);
+    //log.debug("--------SO return2: ",this.age);
     this.age++;
     return;
   }
@@ -56,16 +56,22 @@ Indicator.prototype.update = function(candle) {
   //log.debug('this.RSIhistory: ',this.RSIhistory );
   var lowrsi = _.min(this.RSIhistory);
   var highrsi = _.max(this.RSIhistory);
-  /*log.debug('lowrsi: ',lowrsi);
-  log.debug('highrsi: ',highrsi);*/
+  //log.debug('lowrsi: ',lowrsi);
+  //log.debug('highrsi: ',highrsi);
   //Calculate fast (current) %K
-  this.k = ((currentRSI - lowrsi) / (highrsi - lowrsi)) * 100;
+  if (lowrsi === highrsi) {
+    this.k = 0;
+    log.debug('SO: lowrsi === highrsi');
+    log.debug('SO: this.RSIhistory: ',this.RSIhistory);
+  } else {
+    this.k = ((currentRSI - lowrsi) / (highrsi - lowrsi)) * 100;
+  }
   //log.debug('this.k:',this.k);
   //Calculate %K
   this.avgK.update(this.k);
-  if (this.age > this.interval + this.weight + this.ksize) {
+  if (this.age > Number.parseInt(this.interval) + Number.parseInt(this.weight) + Number.parseInt(this.ksize)) {
     //log.debug('this.avgK: ',this.avgK);
-    //log.debug('this.avgK.result: ',this.avgK.result);*/
+    //log.debug('this.avgK.result: ',this.avgK.result);
     this.result = this.avgK.result;
     //log.debug('this.result: ',this.result);
     //Calculate %D
