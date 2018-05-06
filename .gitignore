@@ -53,3 +53,4 @@ exchange/nusadua
 Dockerfile
 .env
 package-lock.json
+candles.txt

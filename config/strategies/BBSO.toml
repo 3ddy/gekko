@@ -1,7 +1,9 @@
-weights = [0.3,0.2,0.2,0.1]
-#[A, B, C, D]
-
+#warmup period 155 1 min candles
 candles = 5
+
+up=70
+down=30
+dev=0.9
 
 [fstochrsi]
 #for RSI
