@@ -1,0 +1,63 @@
+#warmup period 390 1 min candles
+[fstochrsi]
+interval = 14
+stoch = 9
+k = 3
+d = 3
+
+[superk]
+min5 = 3
+min15 = 15
+dist15 = 5
+dist15dist = 5
+
+[thresholds]
+timeout = 4
+synckis = 1
+fordav5 = 1
+fordav15 = 0.5
+fordav15b = 0.5
+dist1 = 20
+dist2 = 100
+distinstant = 100
+#tilto zonak
+nobuy15_1 = [95,100]
+nobuy15_2 = [95,100]
+nobuy5_3  = [95,100]
+nobuy5_4  = [95,100]
+nosell15_1 = [1,5]
+nosell15_2 = [1,5]
+nosell5_3  = [1,5]
+nosell5_4  = [1,5]
+#vetel
+buyzone15_1 = [0,1]
+buyzone5_1  = [0,1]
+buyzone15_2 = [0,1]
+buyzone5_2  = [0,1]
+buyzone15_3 = [0,1]
+buyzone5_3  = [0,1]
+buyzone15_4 = [0,1]
+buyzone5_4  = [0,1]
+buyzone15_5 = [0,1]
+buyzone5_5  = [0,1]
+buyzone15_6 = [0,1]
+buyzone5_6  = [0,1]
+buyzone15_7 = [0,1]
+buyzone5_7  = [0,1]
+buy8 = 0
+#eladas
+sellzone15_1 = [99,100]
+sellzone5_1  = [99,100]
+sellzone15_2 = [99,100]
+sellzone5_2  = [99,100]
+sellzone15_3 = [99,100]
+sellzone5_3  = [99,100]
+sellzone15_4 = [99,100]
+sellzone5_4  = [99,100]
+sellzone15_5 = [99,100]
+sellzone5_5  = [99,100]
+sellzone15_6 = [99,100]
+sellzone5_6  = [99,100]
+sellzone15_7 = [99,100]
+sellzone5_7  = [99,100]
+sell8 = 0
