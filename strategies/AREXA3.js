@@ -140,6 +140,7 @@ method.init = function() {
 
 // what happens on every new candle?
 method.update = function(candle) {
+  var close = (candle.low + candle.high) / 2;
   //TODO: candle aggregating
   /**
    * only candle.close is needed
@@ -149,8 +150,8 @@ method.update = function(candle) {
   //log.debug('**** age ****',this.age);
 
   if (this.aggPrevClose.min5 === null || this.aggPrevClose.min15 === null) {
-    this.aggPrevClose.min5 = candle.close;
-    this.aggPrevClose.min15 = candle.close;
+    this.aggPrevClose.min5 = close;
+    this.aggPrevClose.min15 = close;
   }
   //Calculation gain/loss and storing for history
   if (this.age % 5 === 0) {
@@ -163,28 +164,28 @@ method.update = function(candle) {
       min5: 0,
       min15: 0
     };
-    if (candle.close > this.aggPrevClose.min5) {
-      gain.min5 = candle.close - this.aggPrevClose.min5;
+    if (close > this.aggPrevClose.min5) {
+      gain.min5 = close - this.aggPrevClose.min5;
       loss.min5 = 0;
     } else {
-      loss.min5 = this.aggPrevClose.min5 - candle.close;
+      loss.min5 = this.aggPrevClose.min5 - close;
       gain.min5 = 0;
     }
     this.aggAvgGain.min5[this.iterators.i] = gain.min5;
     this.aggAvgLoss.min5[this.iterators.i] = loss.min5;
-    this.aggPrevClose.min5 = candle.close;
+    this.aggPrevClose.min5 = close;
     this.iterators.i = (this.iterators.i + 1) % this.size.rsi;
     if (this.age % 15 === 0) {
-      if (candle.close > this.aggPrevClose.min15) {
-        gain.min15 = candle.close - this.aggPrevClose.min15;
+      if (close > this.aggPrevClose.min15) {
+        gain.min15 = close - this.aggPrevClose.min15;
         loss.min15 = 0;
       } else {
-        loss.min15 = this.aggPrevClose.min15 - candle.close;
+        loss.min15 = this.aggPrevClose.min15 - close;
         gain.min15 = 0;
       }
       this.aggAvgGain.min15[this.iterators.j] = gain.min15;
       this.aggAvgLoss.min15[this.iterators.j] = loss.min15;
-      this.aggPrevClose.min15 = candle.close;
+      this.aggPrevClose.min15 = close;
       this.iterators.j = (this.iterators.j + 1) % this.size.rsi;
     }
     /*log.debug('this.iterators:',this.iterators);
@@ -302,11 +303,11 @@ method.update = function(candle) {
     //Aggregated 5 min Stochastic RSI %K full
     var gain = 0;
     var loss = 0;
-    if (candle.close > this.aggPrevClose.min5) {
-      gain = candle.close - this.aggPrevClose.min5;
+    if (close > this.aggPrevClose.min5) {
+      gain = close - this.aggPrevClose.min5;
       loss = 0;
     } else {
-      loss = this.aggPrevClose.min5 - candle.close;
+      loss = this.aggPrevClose.min5 - close;
       gain = 0;
     }
     gain = (this.aggPrevAvg.min5.gain * (this.size.rsi - 1) + gain) / this.size.rsi;
@@ -335,11 +336,11 @@ method.update = function(candle) {
     this.aggStochRSI.min5.k = stochrsi * k + this.aggPrevAvg.min5.k * (1 - k);
 
     //Aggregated 15 min Stochastic RSI %K full
-    if (candle.close > this.aggPrevClose.min15) {
-      gain = candle.close - this.aggPrevClose.min15;
+    if (close > this.aggPrevClose.min15) {
+      gain = close - this.aggPrevClose.min15;
       loss = 0;
     } else {
-      loss = this.aggPrevClose.min15 - candle.close;
+      loss = this.aggPrevClose.min15 - close;
       gain = 0;
     }
     gain = (this.aggPrevAvg.min15.gain * (this.size.rsi - 1) + gain) / this.size.rsi;
@@ -431,11 +432,12 @@ method.log = function(candle) {
 
 method.check = function(candle) {
   var SO = this.indicators.so;
+  var close = (candle.low + candle.high) / 2;
   //min-max érték mentése
   switch (this.prevCandle.buyevent) {
     case -1:
       //eladás után minimumot keresünk
-      if (this.prevCandle.min > candle.close) this.prevCandle.min = candle.close;
+      if (this.prevCandle.min > close) this.prevCandle.min = close;
       break;
     case 0:
       //itt nem volt semmi ezért törlünk mindent
@@ -444,7 +446,7 @@ method.check = function(candle) {
       break;
     case 1:
       //vétel utána maximumot keresünk
-      if (this.prevCandle.max < candle.close) this.prevCandle.max = candle.close;
+      if (this.prevCandle.max < close) this.prevCandle.max = close;
       break;
   }
 
@@ -462,11 +464,11 @@ method.check = function(candle) {
     if (this.weightedK.min5.length > this.size.min5) {
       this.weightedK.min5.shift();
       //log.debug('this.weightedK.min5: ',this.weightedK.min5);
-      //if (this.superK.min5 === null){
+      if (this.superK.min5 === null){
         this.superK.min5 = this.weightedK.min5.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / this.weightedK.min5.length;
-      /*} else {
+      } else {
         this.superK.min5 = (this.superK.min5 * (this.size.min5 - 1) + _.last(this.weightedK.min5)) / this.size.min5;
-      }*/
+      }
       //log.debug('this.superK.min5: ', this.superK.min5.toFixed(this.digits));
       this.prevDistance.min5.push(this.superK.min5 - prevSuperK5);
       if (this.prevDistance.min5.length > 4) this.prevDistance.min5.shift();
@@ -479,11 +481,11 @@ method.check = function(candle) {
       //log.debug('this.weightedK.min15: ',this.weightedK.min15);
       this.addSuperK15.push(this.weightedK.min15.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / this.weightedK.min15.length);
       if (this.addSuperK15.length === 2){
-        //if(this.superK.min15 === null){
+        if(this.superK.min15 === null){
           this.superK.min15 = this.addSuperK15.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / 2;
-        /*} else {
+        } else {
           this.superK.min15 = (this.superK.min15 + _.last(this.addSuperK15)) / 2;
-        }*/
+        }
         //log.debug('this.superK.min15: ', this.superK.min15.toFixed(this.digits));
         currentDistance15 = this.superK.min15 - prevSuperK15;
         var regi = this.prevDistance.min15[this.iterators.k] || 0;
@@ -496,12 +498,12 @@ method.check = function(candle) {
         //log.debug("this.prevDistance.min15: ",this.prevDistance.min15);
         this.iterators.k = (this.iterators.k + 1) % this.settings.superk.dist15;
         var prevDistanceWilderAvg = this.distanceWilderAvg;
-        //if (this.iterators.k === 0 && this.distanceWilderAvg === 0){
+        if (this.iterators.k === 0 && this.distanceWilderAvg === 0){
           this.distanceWilderAvg = this.prevDistance.min15.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / this.settings.superk.dist15;
-        /*} else {
+        } else {
           this.distanceWilderAvg = (this.distanceWilderAvg * (this.settings.superk.dist15 - 1) + (currentDistance15)) / this.settings.superk.dist15;
           //log.debug('this.distanceWilderAvg',this.distanceWilderAvg.toFixed(this.digits));
-        }*/
+        }
         this.addSuperK15.shift();
       }
     }
@@ -720,7 +722,7 @@ method.check = function(candle) {
         log.debug("vetel 7");
       }
       //8 vétel
-      if (fordulas15lent && this.prevCandle.min < candle.close && this.prevCandle.buyevent !== 1 && this.settings.thresholds.buy8) {
+      if (fordulas15lent && this.prevCandle.min < close && this.prevCandle.buyevent !== 1 && this.settings.thresholds.buy8) {
         superK5Event = 1;
         superK15Event = 1;
         this.sor += "vetel 8 ";
@@ -799,7 +801,7 @@ method.check = function(candle) {
         log.debug("eladas 7");
       }
       //8 eladás
-      if (fordulas15fent && this.prevCandle.max > candle.close && this.prevCandle.buyevent !== -1 && this.settings.thresholds.sell8) {
+      if (fordulas15fent && this.prevCandle.max > close && this.prevCandle.buyevent !== -1 && this.settings.thresholds.sell8) {
         superK5Event = -1;
         superK15Event = -1;
         this.sor += "eladas 8 ";
@@ -821,9 +823,9 @@ method.check = function(candle) {
         log.debug("this.superK.min5", this.superK.min5.toFixed(this.digits));
         log.debug("prevSuperK15", prevSuperK15.toFixed(this.digits));
         log.debug("this.superK.min15", this.superK.min15.toFixed(this.digits));
-        this.prevCandle.close = candle.close;
+        this.prevCandle.close = close;
         this.prevCandle.min = null;
-        this.prevCandle.max = candle.close;
+        this.prevCandle.max = close;
         this.prevCandle.buyevent = 1;
         this.timeout = 0;
       }
@@ -840,8 +842,8 @@ method.check = function(candle) {
         log.debug("this.superK.min5", this.superK.min5.toFixed(this.digits));
         log.debug("prevSuperK15", prevSuperK15.toFixed(this.digits));
         log.debug("this.superK.min15", this.superK.min15.toFixed(this.digits));
-        this.prevCandle.close = candle.close;
-        this.prevCandle.min = candle.close;
+        this.prevCandle.close = close;
+        this.prevCandle.min = close;
         this.prevCandle.max = null;
         this.prevCandle.buyevent = -1;
         this.timeout = 0;
