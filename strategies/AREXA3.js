@@ -12,6 +12,98 @@ method.inZone = function(value,zone) {
   else return false;
 };
 
+//5 min moving
+/**
+ * value: Amiből számolunk StochRSI-t
+ * iterator: Hányadik percben járunk [0-4]
+ * offset: eltolás ha többet akarunk számolni
+ */
+/*
+    previousValue: null,
+    gains: [],
+    gainWilderAvg: null,
+    losses: [],
+    lossWilderAvg: null,
+    rsis: [],
+    k: [],
+    avgK: null,
+    d: [],
+    avgD:null
+ */
+method.calculateFiveMinuteMovingStochRSI = function (value, iterator, offset=0) {
+  if (this.fiveMinuteValues[offset].previousValue === null) {
+    this.fiveMinuteValues[offset].previousValue = value;
+  }
+  let gain, loss, rsi;
+  if (value > this.fiveMinuteValues[offset].previousValue) {
+    gain = value - this.fiveMinuteValues[offset].previousValue;
+    loss = 0;
+  } else {
+    gain = 0;
+    loss = this.fiveMinuteValues[offset].previousValue - value;
+  }
+  //Minden 5-ik elemet elmentjük
+  if (iterator % 5 === offset) {
+    //RSI start
+    this.fiveMinuteValues[offset].gains.push(gain);
+    this.fiveMinuteValues[offset].losses.push(loss);
+    if (this.fiveMinuteValues[offset].losses.length === this.size.rsi) {
+      if (this.fiveMinuteValues[offset].gainWilderAvg === null){
+        this.fiveMinuteValues[offset].gainWilderAvg =
+          this.fiveMinuteValues[offset].gains.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / this.size.rsi;
+        this.fiveMinuteValues[offset].lossWilderAvg =
+          this.fiveMinuteValues[offset].losses.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / this.size.rsi;
+      }
+      else {
+        this.fiveMinuteValues[offset].gainWilderAvg =
+          (this.fiveMinuteValues[offset].gainWilderAvg * (this.size.rsi - 1) + Number.parseFloat(gain)) / this.size.rsi;
+        this.fiveMinuteValues[offset].lossWilderAvg =
+          (this.fiveMinuteValues[offset].lossWilderAvg * (this.size.rsi - 1) + Number.parseFloat(loss)) / this.size.rsi;
+      }
+      if (this.fiveMinuteValues[offset].lossWilderAvg === 0 && this.fiveMinuteValues[offset].gainWilderAvg !== 0){
+        rsi = 100;
+      } else if (this.fiveMinuteValues[offset].lossWilderAvg === 0) {
+        rsi = 0;
+      } else{
+        let rs = this.fiveMinuteValues[offset].gainWilderAvg / this.fiveMinuteValues[offset].lossWilderAvg;
+        rsi = 100 - 100 / (Number.parseFloat(1.0) + Number.parseFloat(rs));
+      }
+      this.fiveMinuteValues[offset].gains.shift();
+      this.fiveMinuteValues[offset].losses.shift();
+      //RSI end
+      //Stochastic start
+      this.fiveMinuteValues[offset].rsis.push(rsi);
+      if (this.fiveMinuteValues[offset].rsis.length === this.size.stoch) {
+        let min = _.min(this.fiveMinuteValues[offset].rsis);
+        let max = _.max(this.fiveMinuteValues[offset].rsis);
+        if (min === max) {
+          this.fiveMinuteValues[offset].k.push(0);
+        } else {
+          this.fiveMinuteValues[offset].k.push((rsi - min) / (max - min) * 100);
+        }
+        this.fiveMinuteValues[offset].rsis.shift();
+        //Stochastic end
+        //%K start
+        if (this.fiveMinuteValues[offset].k.length === this.size.k) {
+          if (this.fiveMinuteValues[offset].avgK === null) {
+            this.fiveMinuteValues[offset].avgK =
+              this.fiveMinuteValues[offset].k.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / this.size.k;
+          } else {
+            //N = number of days in EMA, k = 2 / (N+1)
+            let k = 2 / (Number.parseInt(this.size.k) + 1);
+            //EMA = Value(t) * k + EMA(t-1) * (1 – k)
+            this.fiveMinuteValues[offset].avgK =
+              this.fiveMinuteValues[offset].k.slice(-1)[0] * k + this.fiveMinuteValues[offset].avgK * (1 - k)
+          }
+          this.fiveMinuteValues[offset].k.shift();
+        }
+      }
+    }
+  } else {
+
+  }
+};
+
 // prepare everything our method needs
 method.init = function() {
   this.requiredHistory = this.tradingAdvisor.historySize;
@@ -27,6 +119,19 @@ method.init = function() {
     min15: this.settings.superk.min15
   };
   this.digits = 8;
+  this.fiveMinuteValue = {
+    previousValue: null,
+    gains: [],
+    gainWilderAvg: null,
+    losses: [],
+    lossWilderAvg: null,
+    rsis: [],
+    k: [],
+    avgK: null,
+    d: [],
+    avgD:null
+  };
+  this.fiveMinuteValues = [null,null,null,null,null];
   //Aggregated Indicator variables
   //Aggregated previous close, every N th candle close
   this.aggPrevClose = {
