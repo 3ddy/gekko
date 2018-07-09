@@ -12,6 +12,92 @@ method.inZone = function(value,zone) {
   else return false;
 };
 
+/**
+ * Simple Average
+ * @param values
+ * @returns {number} float average
+ */
+method.calculateAverage = function(values) {
+  return Number.parseFloat(
+    values.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / values.length
+  );
+};
+
+/**
+ * Calculating Exponential Moving Average
+ * @param values: array
+ * @param lastvalue: float or null
+ * @param size: int
+ * @returns {number} float
+ */
+method.calculateEMA = function(values,lastvalue = null,size) {
+  let result = lastvalue;
+  if (values.length === size) {
+    //N = number of days in EMA, k = 2 / (N+1)
+    let k = 2 / (Number.parseInt(size) + 1);
+    //EMA = Value(t) * k + EMA(t-1) * (1 – k)
+    if (lastvalue === null) {
+      result = this.calculateAverage(values);
+    } else {
+      result = Number.parseFloat(values.slice(-1)[0]) + Number.parseFloat(lastvalue * (1 - k));
+    }
+  }
+  return result;
+};
+
+/**
+ * Calculating Wilder's Movind Average
+ * @param values: array
+ * @param lastvalue: float or null
+ * @param size: int
+ * @returns {number} float
+ */
+method.calculateWilder = function(values,lastvalue = null,size) {
+  let result = lastvalue;
+  if (values.length === size) {
+    if (lastvalue === null) {
+      result = this.calculateAverage(values);
+    } else {
+      result = (lastvalue * (size - 1) + Number.parseFloat(values.slice(-1)[0])) / Number.parseInt(size);
+    }
+  }
+  return result;
+};
+
+/**
+ * Calculate RSI
+ * 100-(100/(1+RS))
+ * @param gain
+ * @param loss
+ * @returns {number} float rsi
+ */
+method.calculateRSI = function (gain = 0,loss = 0) {
+  let rsi;
+  if (loss === 0 && gain !== 0) {
+    rsi = 100;
+  } else if (loss === 0) {
+    rsi = 0;
+  } else {
+    let rs = gain / loss;
+    rsi = 100 - 100 / (1 + Number.parseFloat(rs));
+  }
+  return Number.parseFloat(rsi);
+};
+/**
+ *
+ * @param min
+ * @param max
+ * @param rsi
+ * @returns {number} float
+ */
+method.calculateStochastic = function(min = 0, max = 0, rsi = 0) {
+  if (min === max) {
+    return 0;
+  } else {
+    return ((rsi - min) / (max - min)) * 100;
+  }
+};
+
 //5 min moving
 /**
  * value: Amiből számolunk StochRSI-t
@@ -48,26 +134,19 @@ method.calculateFiveMinuteMovingStochRSI = function (value, iterator, offset=0) 
     this.fiveMinuteValues[offset].gains.push(gain);
     this.fiveMinuteValues[offset].losses.push(loss);
     if (this.fiveMinuteValues[offset].losses.length === this.size.rsi) {
-      if (this.fiveMinuteValues[offset].gainWilderAvg === null){
-        this.fiveMinuteValues[offset].gainWilderAvg =
-          this.fiveMinuteValues[offset].gains.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / this.size.rsi;
-        this.fiveMinuteValues[offset].lossWilderAvg =
-          this.fiveMinuteValues[offset].losses.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / this.size.rsi;
-      }
-      else {
-        this.fiveMinuteValues[offset].gainWilderAvg =
-          (this.fiveMinuteValues[offset].gainWilderAvg * (this.size.rsi - 1) + Number.parseFloat(gain)) / this.size.rsi;
-        this.fiveMinuteValues[offset].lossWilderAvg =
-          (this.fiveMinuteValues[offset].lossWilderAvg * (this.size.rsi - 1) + Number.parseFloat(loss)) / this.size.rsi;
-      }
-      if (this.fiveMinuteValues[offset].lossWilderAvg === 0 && this.fiveMinuteValues[offset].gainWilderAvg !== 0){
-        rsi = 100;
-      } else if (this.fiveMinuteValues[offset].lossWilderAvg === 0) {
-        rsi = 0;
-      } else{
-        let rs = this.fiveMinuteValues[offset].gainWilderAvg / this.fiveMinuteValues[offset].lossWilderAvg;
-        rsi = 100 - 100 / (Number.parseFloat(1.0) + Number.parseFloat(rs));
-      }
+
+      this.fiveMinuteValues[offset].gainWilderAvg = this.calculateWilder(
+        this.fiveMinuteValues[offset].gains,
+        this.fiveMinuteValues[offset].gainWilderAvg,
+        this.size.rsi);
+      this.fiveMinuteValues[offset].lossWilderAvg = this.calculateWilder(
+        this.fiveMinuteValues[offset].losses,
+        this.fiveMinuteValues[offset].lossWilderAvg,
+        this.size.rsi);
+      rsi = this.calculateRSI(
+        this.fiveMinuteValues[offset].gainWilderAvg,
+        this.fiveMinuteValues[offset].lossWilderAvg
+      );
       this.fiveMinuteValues[offset].gains.shift();
       this.fiveMinuteValues[offset].losses.shift();
       //RSI end
@@ -76,31 +155,32 @@ method.calculateFiveMinuteMovingStochRSI = function (value, iterator, offset=0) 
       if (this.fiveMinuteValues[offset].rsis.length === this.size.stoch) {
         let min = _.min(this.fiveMinuteValues[offset].rsis);
         let max = _.max(this.fiveMinuteValues[offset].rsis);
-        if (min === max) {
-          this.fiveMinuteValues[offset].k.push(0);
-        } else {
-          this.fiveMinuteValues[offset].k.push((rsi - min) / (max - min) * 100);
-        }
+        this.fiveMinuteValues[offset].k.push(this.calculateStochastic(min,max,rsi));
         this.fiveMinuteValues[offset].rsis.shift();
         //Stochastic end
         //%K start
         if (this.fiveMinuteValues[offset].k.length === this.size.k) {
-          if (this.fiveMinuteValues[offset].avgK === null) {
-            this.fiveMinuteValues[offset].avgK =
-              this.fiveMinuteValues[offset].k.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / this.size.k;
-          } else {
-            //N = number of days in EMA, k = 2 / (N+1)
-            let k = 2 / (Number.parseInt(this.size.k) + 1);
-            //EMA = Value(t) * k + EMA(t-1) * (1 – k)
-            this.fiveMinuteValues[offset].avgK =
-              this.fiveMinuteValues[offset].k.slice(-1)[0] * k + this.fiveMinuteValues[offset].avgK * (1 - k)
-          }
+          this.fiveMinuteValues[offset].avgK = this.calculateEMA(
+            this.fiveMinuteValues[offset].k,
+            this.fiveMinuteValues[offset].avgK,
+            this.size.k);
           this.fiveMinuteValues[offset].k.shift();
+          //%K end
+          //%D start
+          this.fiveMinuteValues[offset].d.push(this.fiveMinuteValues[offset].avgK);
+          if (this.fiveMinuteValues[offset].d.length === this.size.d) {
+            this.fiveMinuteValues[offset].avgD = this.calculateEMA(
+              this.fiveMinuteValues[offset].d,
+              this.fiveMinuteValues[offset].avgD,
+              this.size.d);
+            this.fiveMinuteValues[offset].d.shift();
+          }
+          //%D end
         }
       }
     }
   } else {
-
+  //Moving
   }
 };
 
