@@ -27,20 +27,18 @@ method.calculateAverage = function(values) {
  * Calculating Exponential Moving Average
  * @param values: array
  * @param lastvalue: float or null
- * @param size: int
  * @returns {number} float
  */
-method.calculateEMA = function(values,lastvalue = null,size) {
+method.calculateEMA = function(values,lastvalue = null) {
   let result = lastvalue;
-  if (values.length === size) {
-    //N = number of days in EMA, k = 2 / (N+1)
-    let k = 2 / (Number.parseInt(size) + 1);
-    //EMA = Value(t) * k + EMA(t-1) * (1 – k)
-    if (lastvalue === null) {
-      result = this.calculateAverage(values);
-    } else {
-      result = Number.parseFloat(values.slice(-1)[0]) + Number.parseFloat(lastvalue * (1 - k));
-    }
+  let size = values.length;
+  //N = number of days in EMA, k = 2 / (N+1)
+  let k = 2 / (Number.parseInt(size) + 1);
+  //EMA = Value(t) * k + EMA(t-1) * (1 – k)
+  if (lastvalue === null) {
+    result = this.calculateAverage(values);
+  } else {
+    result = Number.parseFloat(values.slice(-1)[0]) + Number.parseFloat(lastvalue * (1 - k));
   }
   return result;
 };
@@ -49,17 +47,15 @@ method.calculateEMA = function(values,lastvalue = null,size) {
  * Calculating Wilder's Movind Average
  * @param values: array
  * @param lastvalue: float or null
- * @param size: int
  * @returns {number} float
  */
-method.calculateWilder = function(values,lastvalue = null,size) {
+method.calculateWilder = function(values,lastvalue = null) {
   let result = lastvalue;
-  if (values.length === size) {
-    if (lastvalue === null) {
-      result = this.calculateAverage(values);
-    } else {
-      result = (lastvalue * (size - 1) + Number.parseFloat(values.slice(-1)[0])) / Number.parseInt(size);
-    }
+  let size = values.length;
+  if (lastvalue === null) {
+    result = this.calculateAverage(values);
+  } else {
+    result = (lastvalue * (size - 1) + Number.parseFloat(values.slice(-1)[0])) / Number.parseInt(size);
   }
   return result;
 };
@@ -98,12 +94,6 @@ method.calculateStochastic = function(min = 0, max = 0, rsi = 0) {
   }
 };
 
-//5 min moving
-/**
- * value: Amiből számolunk StochRSI-t
- * iterator: Hányadik percben járunk [0-4]
- * offset: eltolás ha többet akarunk számolni
- */
 /*
     previousValue: null,
     gains: [],
@@ -116,71 +106,127 @@ method.calculateStochastic = function(min = 0, max = 0, rsi = 0) {
     d: [],
     avgD:null
  */
-method.calculateFiveMinuteMovingStochRSI = function (value, iterator, offset=0) {
-  if (this.fiveMinuteValues[offset].previousValue === null) {
-    this.fiveMinuteValues[offset].previousValue = value;
+/**
+ *
+ * @param input float Amiből számolunk StochRSI-t
+ * @param candleId int Hányadik percben járunk
+ * @param indicatorValuesStore
+ * @param minute int hány perces átlagot akarunk
+ * @param offset int eltolás ha többet akarunk számolni
+ * @param avg int EMA vagy Wilder //TODO nincs kész
+ */
+method.calculateXMinuteMovingIndicator = function (
+  input,  //input data
+  candleId, //age
+  indicatorValuesStore = [null],  //object for storing temporary data and results
+  minute=5, //x minute average candle
+  offset=0,  //if we one multiple X minutes value (0 <-> minute-1)
+  avg = 0   //0 = EMA 1 = Wilder
+) {
+  if (indicatorValuesStore[offset].previousinput === null) {
+    indicatorValuesStore[offset].previousinput = input;
   }
   let gain, loss, rsi;
-  if (value > this.fiveMinuteValues[offset].previousValue) {
-    gain = value - this.fiveMinuteValues[offset].previousValue;
+  if (input > indicatorValuesStore[offset].previousinput) {
+    gain = input - indicatorValuesStore[offset].previousinput;
     loss = 0;
   } else {
     gain = 0;
-    loss = this.fiveMinuteValues[offset].previousValue - value;
+    loss = indicatorValuesStore[offset].previousinput - input;
   }
-  //Minden 5-ik elemet elmentjük
-  if (iterator % 5 === offset) {
+  //Minden X-ik elemet elmentjük
+  if (candleId % minute === offset) {
+    //Save X. input
+    indicatorValuesStore[offset].previousinput = input;
     //RSI start
-    this.fiveMinuteValues[offset].gains.push(gain);
-    this.fiveMinuteValues[offset].losses.push(loss);
-    if (this.fiveMinuteValues[offset].losses.length === this.size.rsi) {
-
-      this.fiveMinuteValues[offset].gainWilderAvg = this.calculateWilder(
-        this.fiveMinuteValues[offset].gains,
-        this.fiveMinuteValues[offset].gainWilderAvg,
-        this.size.rsi);
-      this.fiveMinuteValues[offset].lossWilderAvg = this.calculateWilder(
-        this.fiveMinuteValues[offset].losses,
-        this.fiveMinuteValues[offset].lossWilderAvg,
-        this.size.rsi);
+    indicatorValuesStore[offset].gains.push(gain);
+    indicatorValuesStore[offset].losses.push(loss);
+    if (indicatorValuesStore[offset].losses.length === this.size.rsi) {
+      indicatorValuesStore[offset].gainWilderAvg = this.calculateWilder(
+        indicatorValuesStore[offset].gains,
+        indicatorValuesStore[offset].gainWilderAvg);
+      indicatorValuesStore[offset].lossWilderAvg = this.calculateWilder(
+        indicatorValuesStore[offset].losses,
+        indicatorValuesStore[offset].lossWilderAvg);
       rsi = this.calculateRSI(
-        this.fiveMinuteValues[offset].gainWilderAvg,
-        this.fiveMinuteValues[offset].lossWilderAvg
+        indicatorValuesStore[offset].gainWilderAvg,
+        indicatorValuesStore[offset].lossWilderAvg
       );
-      this.fiveMinuteValues[offset].gains.shift();
-      this.fiveMinuteValues[offset].losses.shift();
+      indicatorValuesStore[offset].gains.shift();
+      indicatorValuesStore[offset].losses.shift();
       //RSI end
       //Stochastic start
-      this.fiveMinuteValues[offset].rsis.push(rsi);
-      if (this.fiveMinuteValues[offset].rsis.length === this.size.stoch) {
-        let min = _.min(this.fiveMinuteValues[offset].rsis);
-        let max = _.max(this.fiveMinuteValues[offset].rsis);
-        this.fiveMinuteValues[offset].k.push(this.calculateStochastic(min,max,rsi));
-        this.fiveMinuteValues[offset].rsis.shift();
+      indicatorValuesStore[offset].rsis.push(rsi);
+      if (indicatorValuesStore[offset].rsis.length === this.size.stoch) {
+        let min = _.min(indicatorValuesStore[offset].rsis);
+        let max = _.max(indicatorValuesStore[offset].rsis);
+        indicatorValuesStore[offset].k.push(this.calculateStochastic(min,max,rsi));
+        indicatorValuesStore[offset].rsis.shift();
         //Stochastic end
         //%K start
-        if (this.fiveMinuteValues[offset].k.length === this.size.k) {
-          this.fiveMinuteValues[offset].avgK = this.calculateEMA(
-            this.fiveMinuteValues[offset].k,
-            this.fiveMinuteValues[offset].avgK,
-            this.size.k);
-          this.fiveMinuteValues[offset].k.shift();
+        if (indicatorValuesStore[offset].k.length === this.size.k) {
+          //EMA
+          /*indicatorValuesStore[offset].avgK = this.calculateEMA(
+            indicatorValuesStore[offset].k,
+            indicatorValuesStore[offset].avgK);*/
+          //Wilder
+          indicatorValuesStore[offset].avgK = this.calculateWilder(
+            indicatorValuesStore[offset].k,
+            indicatorValuesStore[offset].avgK);
+          indicatorValuesStore[offset].k.shift();
           //%K end
           //%D start
-          this.fiveMinuteValues[offset].d.push(this.fiveMinuteValues[offset].avgK);
-          if (this.fiveMinuteValues[offset].d.length === this.size.d) {
-            this.fiveMinuteValues[offset].avgD = this.calculateEMA(
-              this.fiveMinuteValues[offset].d,
-              this.fiveMinuteValues[offset].avgD,
-              this.size.d);
-            this.fiveMinuteValues[offset].d.shift();
+          indicatorValuesStore[offset].d.push(indicatorValuesStore[offset].avgK);
+          if (indicatorValuesStore[offset].d.length === this.size.d) {
+            //EMA
+            /*indicatorValuesStore[offset].avgD = this.calculateEMA(
+              indicatorValuesStore[offset].d,
+              indicatorValuesStore[offset].avgD);*/
+            //Wilder
+            indicatorValuesStore[offset].avgD = this.calculateWilder(
+              indicatorValuesStore[offset].d,
+              indicatorValuesStore[offset].avgD);
+            indicatorValuesStore[offset].d.shift();
+            //Saving results
+            this.indicatorResults[offset].superK = indicatorValuesStore[offset].avgK;
+            this.indicatorResults[offset].superD = indicatorValuesStore[offset].avgD;
           }
           //%D end
         }
       }
     }
   } else {
-  //Moving
+    //Moving start
+    //Not saveing input
+    if (indicatorValuesStore[offset].d.avgD !== null) {
+      //RSI start
+      let gainWilderAvg = this.calculateWilder(
+        indicatorValuesStore[offset].gains.concat(gain),
+        indicatorValuesStore[offset].gainWilderAvg);
+      let lossWilderAvg = this.calculateWilder(
+        indicatorValuesStore[offset].losses.concat(loss),
+        indicatorValuesStore[offset].lossWilderAvg);
+      rsi = this.calculateRSI(gainWilderAvg, lossWilderAvg);
+      //RSI end
+      //Stochastic start
+      let min = _.min(indicatorValuesStore[offset].rsis.concat(rsi));
+      let max = _.max(indicatorValuesStore[offset].rsis.concat(rsi));
+      let stochrsi = this.calculateStochastic(min, max, rsi);
+      //Stochastic end
+      //%K start
+      let avgK = this.this.calculateEMA(
+        indicatorValuesStore[offset].k.concat(stochrsi),
+        indicatorValuesStore[offset].avgK);
+      //%K end
+      //%D start
+      let avgD = this.this.calculateEMA(
+        indicatorValuesStore[offset].d.concat(avgK),
+        indicatorValuesStore[offset].avgD);
+      //%D end
+      //Saving results
+      this.indicatorResults[offset].superK = avgK;
+      this.indicatorResults[offset].superD = avgD;
+    }
   }
 };
 
@@ -199,7 +245,7 @@ method.init = function() {
     min15: this.settings.superk.min15
   };
   this.digits = 8;
-  this.fiveMinuteValue = {
+  this.indicatorValues = {
     previousValue: null,
     gains: [],
     gainWilderAvg: null,
@@ -212,6 +258,11 @@ method.init = function() {
     avgD:null
   };
   this.fiveMinuteValues = [null,null,null,null,null];
+  this.xMinuteValues = [null,null,null,null,null];
+  this.indicatorResults = {
+
+  };
+
   //Aggregated Indicator variables
   //Aggregated previous close, every N th candle close
   this.aggPrevClose = {
