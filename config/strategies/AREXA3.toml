@@ -6,10 +6,8 @@ k = 3
 d = 3
 
 [superk]
-min5 = 3
-min15 = 15
-dist15 = 5
-dist15dist = 5
+xmin = 15
+
 
 [thresholds]
 timeout = 4

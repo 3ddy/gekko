@@ -10,7 +10,7 @@ var method = {};
 method.inZone = function(value,zone) {
   if (value >= zone[0] && value <= zone[1]) return true;
   else return false;
-};
+}
 
 /**
  * Simple Average
@@ -18,10 +18,8 @@ method.inZone = function(value,zone) {
  * @returns {number} float average
  */
 method.calculateAverage = function(values) {
-  return Number.parseFloat(
-    values.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / values.length
-  );
-};
+  return (values.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / values.length);
+}
 
 /**
  * Calculating Exponential Moving Average
@@ -41,7 +39,7 @@ method.calculateEMA = function(values,lastvalue = null) {
     result = Number.parseFloat(values.slice(-1)[0]) + Number.parseFloat(lastvalue * (1 - k));
   }
   return result;
-};
+}
 
 /**
  * Calculating Wilder's Movind Average
@@ -58,7 +56,7 @@ method.calculateWilder = function(values,lastvalue = null) {
     result = (lastvalue * (size - 1) + Number.parseFloat(values.slice(-1)[0])) / Number.parseInt(size);
   }
   return result;
-};
+}
 
 /**
  * Calculate RSI
@@ -78,7 +76,7 @@ method.calculateRSI = function (gain = 0,loss = 0) {
     rsi = 100 - 100 / (1 + Number.parseFloat(rs));
   }
   return Number.parseFloat(rsi);
-};
+}
 /**
  *
  * @param min
@@ -92,7 +90,7 @@ method.calculateStochastic = function(min = 0, max = 0, rsi = 0) {
   } else {
     return ((rsi - min) / (max - min)) * 100;
   }
-};
+}
 
 /*
     previousValue: null,
@@ -123,6 +121,12 @@ method.calculateXMinuteMovingIndicator = function (
   offset=0,  //if we one multiple X minutes value (0 <-> minute-1)
   avg = 0   //0 = EMA 1 = Wilder
 ) {
+  log.debug('input',input);
+  log.debug('candleId',candleId);
+  log.debug('indicatorValuesStore',indicatorValuesStore);
+  log.debug('minute',minute);
+  log.debug('offset',offset);
+
   if (indicatorValuesStore[offset].previousinput === null) {
     indicatorValuesStore[offset].previousinput = input;
   }
@@ -188,8 +192,10 @@ method.calculateXMinuteMovingIndicator = function (
               indicatorValuesStore[offset].avgD);
             indicatorValuesStore[offset].d.shift();
             //Saving results
-            this.indicatorResults[offset].superK = indicatorValuesStore[offset].avgK;
-            this.indicatorResults[offset].superD = indicatorValuesStore[offset].avgD;
+            /*this.indicatorResults[offset].superK = indicatorValuesStore[offset].avgK;
+            this.indicatorResults[offset].superD = indicatorValuesStore[offset].avgD;*/
+            log.debug('indicatorValuesStore[offset].avgK',indicatorValuesStore[offset].avgK);
+            log.debug('indicatorValuesStore[offset].avgD',indicatorValuesStore[offset].avgD);
             return {
               superK: indicatorValuesStore[offset].avgK,
               superD: indicatorValuesStore[offset].avgD
@@ -228,21 +234,23 @@ method.calculateXMinuteMovingIndicator = function (
         indicatorValuesStore[offset].avgD);
       //%D end
       //Saving results
-      this.indicatorResults[offset].superK = avgK;
-      this.indicatorResults[offset].superD = avgD;
+      /*this.indicatorResults[offset].superK = avgK;
+      this.indicatorResults[offset].superD = avgD;*/
+      log.debug('indicatorValuesStore[offset].avgK',indicatorValuesStore[offset].avgK);
+      log.debug('indicatorValuesStore[offset].avgD',indicatorValuesStore[offset].avgD);
       return {
         superK: avgK,
         superD: avgD
       };
     }
   }
-};
+}
 
 // prepare everything our method needs
 method.init = function() {
   //TODO init
   this.requiredHistory = this.tradingAdvisor.historySize;
-  log.debug('this.tradingAdvisor.historySize: ', this.tradingAdvisor.historySize);
+  log.warn('this.tradingAdvisor.historySize: ', this.tradingAdvisor.historySize);
   this.addIndicator('so', 'SO', this.settings.fstochrsi);
   //Size
   this.size = {
@@ -250,8 +258,6 @@ method.init = function() {
     stoch: this.settings.fstochrsi.stoch,
     k: this.settings.fstochrsi.k,
     d: this.settings.fstochrsi.d,
-    min5: this.settings.superk.min5,
-    min15: this.settings.superk.min15
   };
   this.digits = 8;
   this.indicatorValues = {
@@ -266,84 +272,21 @@ method.init = function() {
     d: [],
     avgD:null
   };
-  this.fiveMinuteValues = [null,null,null,null,null];
-  this.xMinuteValues = [null,null,null,null,null];
-  this.indicatorResults = { };
-  this.fiveMinuteValues.push(this.indicatorValues);
+  this.oneMinuteValues = [null];
+  //this.oneMinuteValues.push(this.indicatorValues);
 
-  //Aggregated Indicator variables
-  //Aggregated previous close, every N th candle close
-  this.aggPrevClose = {
-    min5: null,
-    min15: null
+  this.fiveMinuteValues = [null,null,null,null,null];
+  //this.fiveMinuteValues.push(this.indicatorValues);
+
+  this.xMinuteValues = [null,null,null,null,null];
+  //this.xMinuteValues.push(this.indicatorValues);
+
+  this.indicatorResults = {
+    one: {},
+    five: {},
+    xmin: {}
   };
-  //Average gain/loss of aggregated candles
-  this.aggAvgLoss = {
-    min5: [],
-    min15: []
-  };
-  this.aggAvgGain = {
-    min5: [],
-    min15: []
-  };
-  this.iterators = {
-    i:0, //for 5 min aggAvgGain/Loss
-    j:0, //for 15 min aggAvgGain/Loss
-    k:0  //for moving summary
-  };
-  //Previous moving averages of aggregated candles
-  this.aggPrevAvg = {
-    min5: {
-      gain: null,
-      loss: null,
-      k: null,
-      d: null
-    },
-    min15: {
-      gain: null,
-      loss: null,
-      k: null,
-      d: null
-    }
-  };
-  //Moving Stochastic RSI, every N th is equal to this.aggPrevAvg.[k,d]
-  this.aggStochRSI = {
-    min5: {
-      k: null,
-      d: null
-    },
-    min15: {
-      k: null,
-      d: null
-    }
-  };
-  //Aggregated RSI history
-  this.aggRSIHistory = {
-    min5: [],
-    min15: []
-  };
-  //Aggregated Stochastic %K
-  this.aggAvgK = {
-    min5: [],
-    min15: []
-  };
-  //Aggregated Stochastic %D
-  this.aggAvgD = {
-    min5: [],
-    min15: []
-  };
-  //avgK + 5minmovingK * 2 /3
-  //avgK + 15minmovingK * 2 /3
-  this.weightedK = {
-    min5: [],
-    min15: []
-  };
-  //superk15 előtti átlaghoz kell
-  this.addSuperK15 = [];
-  this.superK = {
-    min5: null,
-    min15:null
-  };
+
 
   this.age = 0;
 
@@ -354,66 +297,31 @@ method.init = function() {
     zone: 0, //5, 6, 1 a vételi zónák 2, 3, 4 az eladási zónák
     buyevent: 0 // -1 SELL 0 none or emergency sell 1 BUY
   };
-  this.trend = {
-    min5: { direction: null, duration: null },
-    min15: { direction: null, duration: null }
-  };
-  //aktuális - előző superk értéke
-  this.prevDistance = {
-    min5: [], //saving the last 3
-    min15: [], //because of moving summary
-    dist15: [] //previous distance of distance15
-  };
-  //15 min distance összege
-  this.distanceWilderAvg = 0;
   //Nincs művelet amíg le nem tellik
   this.timeout = this.settings.thresholds.timeout;
-
+  let filename = 'candles3.csv';
   try {
-    fs.unlinkSync('candles3.txt');
+    fs.unlinkSync(filename);
   } catch (e) {
-
+    log.debug(e);
   }
-  this.fd = fs.openSync('candles3.txt','a');
+  this.fd = fs.openSync(filename,'a');
   fs.appendFileSync(this.fd,
-    "start;age;open;high;low;close;5minclose;15minclose;1minK;5minK;15minK;" +
-    "5minmovingK;15minmovingK;superk5;superk15;dist5;dist15;muvelet\n",
+    "start;age;open;high;low;close;avgall;1minwildK;1minwildD;5minwildK;5minwildD;XminwildK;XminwildD;muvelet\n",
     'utf8');
   this.sor = '';
-};
+}
 
 // what happens on every new candle?
 method.update = function(candle) {
   //TODO update
-  var price = (candle.open + candle.low + candle.high + candle.close) / 4;
-  //calculating 5 minutes
-  this.calculateXMinuteMovingIndicator(price, this.age,this.fiveMinuteValues,5,0);
-
-
-};
+}
 
 // for debugging purposes log the last
 // calculated parameters.
 method.log = function(candle) {
   var SO = this.indicators.so;
-  //SO.d.result SO.k (fast %K) SO.result = SO.avgK.result (full %K)
 
-  /*log.debug('SO.d: ', SO.d.result.toFixed(this.digits));
-  log.debug("SO.k: " + SO.k.toFixed(this.digits));
-  log.debug("SO.result: " + SO.result.toFixed(this.digits));
-  log.debug("SO.avgK.result: " + SO.avgK.result.toFixed(this.digits));*/
-  var k = {
-    min5: this.aggPrevAvg.min5.k===null?0:this.aggPrevAvg.min5.k,
-    min15: this.aggPrevAvg.min15.k===null?0:this.aggPrevAvg.min15.k
-  };
-  var mk = {
-    min5: this.aggStochRSI.min5.k===null?0:this.aggStochRSI.min5.k,
-    min15: this.aggStochRSI.min15.k===null?0:this.aggStochRSI.min15.k
-  };
-  var superk = {
-    min5: this.superK.min5===null?0:this.superK.min5,
-    min15: this.superK.min15===null?0:this.superK.min15
-  };
   if (this.sor !== '') {
     fs.appendFileSync(this.fd,this.sor + "\n",'utf8');
   }
@@ -421,7 +329,7 @@ method.log = function(candle) {
   var d = new Date(candle.start);
 
   //start;open;high;low;close;5minclose;15minclose;1minK;5minK;15minK;5minmovingK;15minmovingK,superk5,superk15
-  this.sor =
+  /*this.sor =
     d.getFullYear() + '-' + (Number.parseInt(d.getMonth())+1) + '-' +d.getDate() + ' ' +
     d.toLocaleTimeString('hu-HU') + ';' + this.age + ";" +
     candle.open.toFixed(this.digits).replace(".", ",") + ';' +
@@ -437,20 +345,33 @@ method.log = function(candle) {
     mk.min15.toFixed(this.digits).replace(".", ",") + ';' +
     superk.min5.toFixed(this.digits).replace(".", ",") + ';' +
     superk.min15.toFixed(this.digits).replace(".", ",") + ';';
-  /*
+  */
   //candle
   log.debug('candle.high: ', candle.high.toFixed(this.digits));
   log.debug('candle.open: ', candle.open.toFixed(this.digits));
   log.debug('candle.low: ', candle.low.toFixed(this.digits));
   log.debug('candle.close: ', candle.close.toFixed(this.digits));
-*/
-};
+
+}
 
 method.check = function(candle) {
   var SO = this.indicators.so;
-  var close = (candle.low + candle.high) / 2;
+  var a = (candle.open + candle.low + candle.high + candle.close) / 4;
+  log.debug('candle.high: ', candle.high.toFixed(this.digits));
+  log.debug('candle.open: ', candle.open.toFixed(this.digits));
+  log.debug('candle.low: ', candle.low.toFixed(this.digits));
+  log.debug('candle.close: ', candle.close.toFixed(this.digits));
+  log.debug('price',a.toFixed(this.digits));
+  //calculating 5 minutes
+  /*this.indicatorResults.one =
+    this.calculateXMinuteMovingIndicator(price, this.age,this.fiveMinuteValues,1,0);
+  this.indicatorResults.five =
+    this.calculateXMinuteMovingIndicator(price, this.age,this.fiveMinuteValues,5,0);
+  this.indicatorResults.xmin =
+    this.calculateXMinuteMovingIndicator(price, this.age,this.xMinuteValues,this.settings.superk.xmin,0);
+  log.debug('this.indicatorResults ',this.indicatorResults);*/
   //min-max érték mentése
-  switch (this.prevCandle.buyevent) {
+ /* switch (this.prevCandle.buyevent) {
     case -1:
       //eladás után minimumot keresünk
       if (this.prevCandle.min > close) this.prevCandle.min = close;
@@ -466,63 +387,7 @@ method.check = function(candle) {
       break;
   }
 
-  //Calculating SuperK
-  if (_.size(this.aggAvgK.min15) == this.size.k && this.aggPrevAvg.min15.k !== null && this.aggStochRSI.min15.k!==null) {
-    var prevSuperK5 = this.superK.min5;
-    var prevSuperK15 = this.superK.min15;
-    var prevDistance5 = _.last(this.prevDistance.min5);
-    var prevDistance15 = (this.iterators.k - 1 < 0)?null:this.prevDistance.min15[this.iterators.k - 1];
-    var currentDistance15 = null;
-    /*
-      Wilder = előző * (db-1) + aktuális / db
-     */
-    this.weightedK.min5.push((Number.parseFloat(SO.result) + this.aggStochRSI.min5.k * 2) / 3);
-    if (this.weightedK.min5.length > this.size.min5) {
-      this.weightedK.min5.shift();
-      //log.debug('this.weightedK.min5: ',this.weightedK.min5);
-      if (this.superK.min5 === null){
-        this.superK.min5 = this.weightedK.min5.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / this.weightedK.min5.length;
-      } else {
-        this.superK.min5 = (this.superK.min5 * (this.size.min5 - 1) + _.last(this.weightedK.min5)) / this.size.min5;
-      }
-      //log.debug('this.superK.min5: ', this.superK.min5.toFixed(this.digits));
-      this.prevDistance.min5.push(this.superK.min5 - prevSuperK5);
-      if (this.prevDistance.min5.length > 4) this.prevDistance.min5.shift();
-      this.sor += _.last(this.prevDistance.min5).toFixed(this.digits).replace(".", ",") + ";";
-    }
-    //this.weightedK.min15.push((Number.parseFloat(SO.result) + this.aggStochRSI.min15.k * 2) / 3);
-    this.weightedK.min15.push(this.aggStochRSI.min15.k);
-    if (this.weightedK.min15.length > this.size.min15) {
-      this.weightedK.min15.shift();
-      //log.debug('this.weightedK.min15: ',this.weightedK.min15);
-      this.addSuperK15.push(this.weightedK.min15.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / this.weightedK.min15.length);
-      if (this.addSuperK15.length === 2){
-        if(this.superK.min15 === null){
-          this.superK.min15 = this.addSuperK15.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / 2;
-        } else {
-          this.superK.min15 = (this.superK.min15 + _.last(this.addSuperK15)) / 2;
-        }
-        //log.debug('this.superK.min15: ', this.superK.min15.toFixed(this.digits));
-        currentDistance15 = this.superK.min15 - prevSuperK15;
-        var regi = this.prevDistance.min15[this.iterators.k] || 0;
-        //előző K15 távolságok aktuális - előző SuperK15
-        this.prevDistance.min15[this.iterators.k] = currentDistance15;
-
-        this.sor += this.prevDistance.min15[this.iterators.k].toFixed(this.digits).replace(".", ",") + ";";
-        //this.sor += this.distanceWilderAvg.toFixed(this.digits).replace(".", ",") + ";";
-        //log.debug("this.distanceWilderAvg: ",this.distanceWilderAvg.toFixed(this.digits));
-        //log.debug("this.prevDistance.min15: ",this.prevDistance.min15);
-        this.iterators.k = (this.iterators.k + 1) % this.settings.superk.dist15;
-        var prevDistanceWilderAvg = this.distanceWilderAvg;
-        if (this.iterators.k === 0 && this.distanceWilderAvg === 0){
-          this.distanceWilderAvg = this.prevDistance.min15.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / this.settings.superk.dist15;
-        } else {
-          this.distanceWilderAvg = (this.distanceWilderAvg * (this.settings.superk.dist15 - 1) + (currentDistance15)) / this.settings.superk.dist15;
-          //log.debug('this.distanceWilderAvg',this.distanceWilderAvg.toFixed(this.digits));
-        }
-        this.addSuperK15.shift();
-      }
-    }
+/*
     //Strategy ready to start
     var superK5Event = 0, superK15Event = 0; //1 buy | -1 sell | 0 nothing
     if (prevSuperK15 !== null && prevDistance15 !== null && this.prevDistance.min5.length === 4) {
@@ -538,9 +403,7 @@ method.check = function(candle) {
       if (this.prevDistance.min5[0] > 0 &&
         this.prevDistance.min5[1] > 0 &&
         this.prevDistance.min5[2] > 0 &&
-        this.prevDistance.min5[3] < 0 /*&&
-        this.prevDistance.min5[0] >= this.prevDistance.min5[1] &&
-        this.prevDistance.min5[1] >= this.prevDistance.min5[2]*/) {
+        this.prevDistance.min5[3] < 0 ) {
         //2 növekszik és az aktuális fordul -> fent
         fordulas5fent = true;
         this.sor += "fordulasfent 5 ";
@@ -548,21 +411,19 @@ method.check = function(candle) {
       if (this.prevDistance.min5[0] < 0 &&
         this.prevDistance.min5[1] < 0 &&
         this.prevDistance.min5[2] < 0 &&
-        this.prevDistance.min5[3] > 0 /*&&
-        this.prevDistance.min5[0] >= this.prevDistance.min5[1] &&
-        this.prevDistance.min5[1] >= this.prevDistance.min5[2]*/) {
+        this.prevDistance.min5[3] > 0 ) {
         //2 csökken és az aktuális fordul -> lent
         fordulas5lent = true;
         this.sor += "fordulaslent 5 ";
       }
       //K15 fordulás
       var irany = 0;
-      /*
-        Ha A + és B - ---> akkor esik a görbe, azaz DOWN
-        Ha A - és B - ---> nem történik semmi, azaz DOWN
-        Ha A - és B + ----> akkor nőni kezd a görbe, azaz UP
-        Ha A + és B + ----> nem történik semmi, azaz UP.
-       */
+
+      //  Ha A + és B - ---> akkor esik a görbe, azaz DOWN
+      //  Ha A - és B - ---> nem történik semmi, azaz DOWN
+      //  Ha A - és B + ----> akkor nőni kezd a görbe, azaz UP
+      //  Ha A + és B + ----> nem történik semmi, azaz UP.
+
       if (prevDistanceWilderAvg > 0 && this.distanceWilderAvg < 0) {
         irany = -1; //le
       } else if (prevDistanceWilderAvg < 0 && this.distanceWilderAvg < 0) {
@@ -868,7 +729,8 @@ method.check = function(candle) {
       //log.debug('this.timeout',this.timeout);
       this.timeout++;
     }
-  }
-};
+   /
+  }*/
+}
 
 module.exports = method;
