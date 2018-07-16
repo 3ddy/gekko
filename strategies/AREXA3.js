@@ -190,6 +190,10 @@ method.calculateXMinuteMovingIndicator = function (
             //Saving results
             this.indicatorResults[offset].superK = indicatorValuesStore[offset].avgK;
             this.indicatorResults[offset].superD = indicatorValuesStore[offset].avgD;
+            return {
+              superK: indicatorValuesStore[offset].avgK,
+              superD: indicatorValuesStore[offset].avgD
+            };
           }
           //%D end
         }
@@ -226,12 +230,17 @@ method.calculateXMinuteMovingIndicator = function (
       //Saving results
       this.indicatorResults[offset].superK = avgK;
       this.indicatorResults[offset].superD = avgD;
+      return {
+        superK: avgK,
+        superD: avgD
+      };
     }
   }
 };
 
 // prepare everything our method needs
 method.init = function() {
+  //TODO init
   this.requiredHistory = this.tradingAdvisor.historySize;
   log.debug('this.tradingAdvisor.historySize: ', this.tradingAdvisor.historySize);
   this.addIndicator('so', 'SO', this.settings.fstochrsi);
@@ -259,9 +268,8 @@ method.init = function() {
   };
   this.fiveMinuteValues = [null,null,null,null,null];
   this.xMinuteValues = [null,null,null,null,null];
-  this.indicatorResults = {
-
-  };
+  this.indicatorResults = { };
+  this.fiveMinuteValues.push(this.indicatorValues);
 
   //Aggregated Indicator variables
   //Aggregated previous close, every N th candle close
@@ -362,255 +370,27 @@ method.init = function() {
   this.timeout = this.settings.thresholds.timeout;
 
   try {
-    fs.unlinkSync('candles2.txt');
+    fs.unlinkSync('candles3.txt');
   } catch (e) {
 
   }
-  this.fd = fs.openSync('candles2.txt','a');
+  this.fd = fs.openSync('candles3.txt','a');
   fs.appendFileSync(this.fd,
     "start;age;open;high;low;close;5minclose;15minclose;1minK;5minK;15minK;" +
     "5minmovingK;15minmovingK;superk5;superk15;dist5;dist15;muvelet\n",
     'utf8');
   this.sor = '';
-}
+};
 
 // what happens on every new candle?
 method.update = function(candle) {
-  var close = (candle.low + candle.high) / 2;
-  //TODO: candle aggregating
-  /**
-   * only candle.close is needed
-   * this.settings.fstochrsi.interval - 1 * this.settings.candles for avgLoss/Gain
-   */
-  //log.debug('candle',candle);
-  //log.debug('**** age ****',this.age);
+  //TODO update
+  var price = (candle.open + candle.low + candle.high + candle.close) / 4;
+  //calculating 5 minutes
+  this.calculateXMinuteMovingIndicator(price, this.age,this.fiveMinuteValues,5,0);
 
-  if (this.aggPrevClose.min5 === null || this.aggPrevClose.min15 === null) {
-    this.aggPrevClose.min5 = close;
-    this.aggPrevClose.min15 = close;
-  }
-  //Calculation gain/loss and storing for history
-  if (this.age % 5 === 0) {
-    //5 min candles
-    var gain = {
-      min5: 0,
-      min15: 0
-    };
-    var loss = {
-      min5: 0,
-      min15: 0
-    };
-    if (close > this.aggPrevClose.min5) {
-      gain.min5 = close - this.aggPrevClose.min5;
-      loss.min5 = 0;
-    } else {
-      loss.min5 = this.aggPrevClose.min5 - close;
-      gain.min5 = 0;
-    }
-    this.aggAvgGain.min5[this.iterators.i] = gain.min5;
-    this.aggAvgLoss.min5[this.iterators.i] = loss.min5;
-    this.aggPrevClose.min5 = close;
-    this.iterators.i = (this.iterators.i + 1) % this.size.rsi;
-    if (this.age % 15 === 0) {
-      if (close > this.aggPrevClose.min15) {
-        gain.min15 = close - this.aggPrevClose.min15;
-        loss.min15 = 0;
-      } else {
-        loss.min15 = this.aggPrevClose.min15 - close;
-        gain.min15 = 0;
-      }
-      this.aggAvgGain.min15[this.iterators.j] = gain.min15;
-      this.aggAvgLoss.min15[this.iterators.j] = loss.min15;
-      this.aggPrevClose.min15 = close;
-      this.iterators.j = (this.iterators.j + 1) % this.size.rsi;
-    }
-    /*log.debug('this.iterators:',this.iterators);
-    log.debug('this.aggAvgGain.min5.length:',this.aggAvgGain.min5.length);
-    log.debug('this.aggAvgGain.min15.length:',this.aggAvgGain.min15.length);
-    log.debug('this.aggAvgLoss.min5.length:',this.aggAvgLoss.min5.length);
-    log.debug('this.aggAvgLoss.min15.length:',this.aggAvgLoss.min15.length);
-    log.debug('this.aggPrevClose:',this.aggPrevClose);*/
-//TODO: aktuális(utolsó) gain loss kell lejjebb
-    //Calculating RS and RSI with Wilder's smoothing average
-    //if (this.aggAvgGain.min15.lenght === this.size.rsi) {
-    if (this.age >= this.size.rsi * 15 ) {
-      //log.debug('------------starting rs: ',this.age);
-      var rs = {
-        min5: 0,
-        min15: 0
-      };
-      var rsi = {
-        min5: 0,
-        min15: 0
-      };
-      //First RSI calculation
-      if (this.aggPrevAvg.min5.gain === null) {
-        this.aggPrevAvg.min5.gain = this.aggAvgGain.min5.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / _.size(this.aggAvgGain.min5);
-        this.aggPrevAvg.min5.loss = this.aggAvgLoss.min5.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / _.size(this.aggAvgLoss.min5);
-        rs.min5 = this.aggPrevAvg.min5.gain / this.aggPrevAvg.min5.loss;
-      } else {
-        this.aggPrevAvg.min5.gain = (this.aggPrevAvg.min5.gain * (this.size.rsi - 1) + Number.parseFloat(gain.min5)) / this.size.rsi;
-        this.aggPrevAvg.min5.loss = (this.aggPrevAvg.min5.loss * (this.size.rsi - 1) + Number.parseFloat(loss.min5)) / this.size.rsi;
-        rs.min5 = this.aggPrevAvg.min5.gain / this.aggPrevAvg.min5.loss;
-      }
-      rsi.min5 = 100 - 100 / (Number.parseFloat(1.0) + Number.parseFloat(rs.min5));
-      //RSI=100 if average loss is 0 by definition
-      if (this.aggPrevAvg.min5.loss === 0 && this.aggPrevAvg.min5.gain !== 0) {
-        rsi.min5 = 100;
-      } else if (this.aggPrevAvg.min5.loss === 0) {
-        rsi.min5 = 0;
-      }
-      this.aggRSIHistory.min5.push(rsi.min5);
-      if (this.age % 15 === 0){
-        if (this.aggPrevAvg.min15.gain === null) {
-          this.aggPrevAvg.min15.gain = this.aggAvgGain.min15.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / _.size(this.aggAvgGain.min15);
-          this.aggPrevAvg.min15.loss = this.aggAvgLoss.min15.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / _.size(this.aggAvgLoss.min15);
-          rs.min15 = this.aggPrevAvg.min15.gain / this.aggPrevAvg.min15.loss;
-        } else {
-          this.aggPrevAvg.min15.gain = (this.aggPrevAvg.min15.gain * (this.size.rsi - 1) + Number.parseFloat(gain.min15)) / this.size.rsi;
-          this.aggPrevAvg.min15.loss = (this.aggPrevAvg.min15.loss * (this.size.rsi - 1) + Number.parseFloat(loss.min15)) / this.size.rsi;
-          rs.min15 = this.aggPrevAvg.min15.gain / this.aggPrevAvg.min15.loss;
-        }
-        rsi.min15 = 100 - 100 / (Number.parseFloat(1.0) + Number.parseFloat(rs.min5));
-        //RSI=100 if average loss is 0 by definition
-        if (this.aggPrevAvg.min15.loss === 0 && this.aggPrevAvg.min15.gain !== 0) {
-          rsi.min15 = 100;
-        } else if (this.aggPrevAvg.min15.loss === 0) {
-          rsi.min15 = 0;
-        }
-        this.aggRSIHistory.min15.push(rsi.min15);
-      }
-      //Calculating 5 min Full StochascticRSI with exponential moving average
-      if (this.aggRSIHistory.min5.length > this.size.stoch) {
-        this.aggRSIHistory.min5.shift();
-        var min = _.min(this.aggRSIHistory.min5);
-        var max = _.max(this.aggRSIHistory.min5);
-        if (min === max){
-          this.aggAvgK.min5.push(0);
-        } else {
-          this.aggAvgK.min5.push(
-            (rsi.min5 - min) / (max - min) * 100
-          );
-        }
-      }
-      //Calculating 15 min Full StochascticRSI with exponential moving average
-      if (this.aggRSIHistory.min15.length > this.size.stoch) {
-        this.aggRSIHistory.min15.shift();
-        var min = _.min(this.aggRSIHistory.min15);
-        var max = _.max(this.aggRSIHistory.min15);
-        if (min === max){
-          this.aggAvgK.min15.push(0);
-        } else {
-          this.aggAvgK.min15.push(
-            (rsi.min15 - min) / (max - min) * 100
-          );
-        }
-      }
-      if (this.aggAvgK.min5.length > this.size.k) {
-        this.aggAvgK.min5.shift();
-        //First %K calculation
-        if (this.aggPrevAvg.min5.k === null) {
-          this.aggPrevAvg.min5.k = this.aggAvgK.min5.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / _.size(this.aggAvgK.min5);
-        } else {
-          //N = number of days in EMA, k = 2 / (N+1)
-          let k = 2 / (Number.parseInt(this.size.k) + 1);
-          //EMA = Value(t) * k + EMA(t-1) * (1 – k)
-          this.aggPrevAvg.min5.k = this.aggAvgK.min5.slice(-1)[0] * k + this.aggPrevAvg.min5.k * (1 - k);
-        }
-        //Saving current %K and %D
-        this.aggStochRSI.min5.k = this.aggPrevAvg.min5.k;
-      }
-      if (this.aggAvgK.min15.length > this.size.k) {
-        this.aggAvgK.min15.shift();
-        //First %K calculation
-        if (this.aggPrevAvg.min15.k === null) {
-          this.aggPrevAvg.min15.k = this.aggAvgK.min15.reduce((sum, p) => Number.parseFloat(sum) + Number.parseFloat(p), 0) / _.size(this.aggAvgK.min15);
-        } else {
-          //N = number of days in EMA, k = 2 / (N+1)
-          let k = 2 / (Number.parseInt(this.size.k) + 1);
-          //EMA = Value(t) * k + EMA(t-1) * (1 – k)
-          this.aggPrevAvg.min15.k = this.aggAvgK.min15.slice(-1)[0] * k + this.aggPrevAvg.min15.k * (1 - k);
-        }
-        //Saving current %K and %D
-        this.aggStochRSI.min15.k = this.aggPrevAvg.min15.k;
-      }
-    }
-  } else if (_.size(this.aggAvgK.min15) === this.size.k && this.aggPrevAvg.min15.k !== null) {
-    //Aggregated 5 min Stochastic RSI %K full
-    var gain = 0;
-    var loss = 0;
-    if (close > this.aggPrevClose.min5) {
-      gain = close - this.aggPrevClose.min5;
-      loss = 0;
-    } else {
-      loss = this.aggPrevClose.min5 - close;
-      gain = 0;
-    }
-    gain = (this.aggPrevAvg.min5.gain * (this.size.rsi - 1) + gain) / this.size.rsi;
-    loss = (this.aggPrevAvg.min5.loss * (this.size.rsi - 1) + loss) / this.size.rsi;
-    let rs = gain / loss;
-    let rsi = 100 - 100 / (1 + rs);
-    //RSI=100 if average loss is 0 by definition
-    if (loss === 0 && gain !== 0) {
-      rsi = 100;
-    } else if (loss === 0) {
-      rsi = 0;
-    }
-    let rsihist = _.last(this.aggRSIHistory.min5,this.size.rsi - 1).concat(rsi);
-    let min = _.min(rsihist);
-    let max = _.max(rsihist);
-    var stochrsi = null;
-    if (max === min) {
-      log.debug('rsimax5 == rsimin5');
-      log.debug('rsihist5',rsihist);
-      stochrsi = 0;
-    } else {
-      stochrsi = (rsi - min) / (max - min) * 100;
-    }
-    let k = 2 / (this.size.k + 1);
-    //Saving current %K and %D
-    this.aggStochRSI.min5.k = stochrsi * k + this.aggPrevAvg.min5.k * (1 - k);
 
-    //Aggregated 15 min Stochastic RSI %K full
-    if (close > this.aggPrevClose.min15) {
-      gain = close - this.aggPrevClose.min15;
-      loss = 0;
-    } else {
-      loss = this.aggPrevClose.min15 - close;
-      gain = 0;
-    }
-    gain = (this.aggPrevAvg.min15.gain * (this.size.rsi - 1) + gain) / this.size.rsi;
-    loss = (this.aggPrevAvg.min15.loss * (this.size.rsi - 1) + loss) / this.size.rsi;
-    rs = gain / loss;
-    rsi = 100 - 100 / (1 + rs);
-    //RSI=100 if average loss is 0 by definition
-    if (loss === 0 && gain !== 0) {
-      rsi = 100;
-    } else if (loss === 0) {
-      rsi = 0;
-    }
-    rsihist = _.last(this.aggRSIHistory.min15,this.size.rsi - 1).concat(rsi);
-    min = _.min(rsihist);
-    max = _.max(rsihist);
-    if (max === min) {
-      log.debug('rsimax15 == rsimin15');
-      log.debug('rsihist15',rsihist);
-      stochrsi = 0;
-    } else {
-      stochrsi = (rsi - min) / (max - min) * 100;
-    }
-    k = 2 / (this.size.k + 1);
-    //Saving current %K and %D
-    this.aggStochRSI.min15.k = stochrsi * k + this.aggPrevAvg.min15.k * (1 - k);
-
-    /*log.debug('---- Moving ----');
-    log.debug('candle.close', candle.close.toFixed(this.digits));
-    log.debug('this.aggPrevAvg.min5.k', this.aggPrevAvg.min5.k.toFixed(this.digits));
-    log.debug('this.aggPrevAvg.min15.k', this.aggPrevAvg.min15.k.toFixed(this.digits));
-    log.debug("aggStochRSI.min5.k: " + this.aggStochRSI.min5.k.toFixed(this.digits));
-    log.debug("aggStochRSI.min15.k: " + this.aggStochRSI.min15.k.toFixed(this.digits));*/
-  }
-}
+};
 
 // for debugging purposes log the last
 // calculated parameters.
@@ -664,7 +444,7 @@ method.log = function(candle) {
   log.debug('candle.low: ', candle.low.toFixed(this.digits));
   log.debug('candle.close: ', candle.close.toFixed(this.digits));
 */
-}
+};
 
 method.check = function(candle) {
   var SO = this.indicators.so;
@@ -1089,6 +869,6 @@ method.check = function(candle) {
       this.timeout++;
     }
   }
-}
+};
 
 module.exports = method;
