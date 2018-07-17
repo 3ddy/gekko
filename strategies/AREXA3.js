@@ -315,11 +315,13 @@ method.init = function() {
 // what happens on every new candle?
 method.update = function(candle) {
   //TODO update
+  log.debug('update');
 }
 
 // for debugging purposes log the last
 // calculated parameters.
 method.log = function(candle) {
+  log.debug('log');
   var SO = this.indicators.so;
 
   if (this.sor !== '') {
