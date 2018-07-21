@@ -145,7 +145,7 @@ method.update = function(candle) {
    * only candle.close is needed
    * this.settings.fstochrsi.interval - 1 * this.settings.candles for avgLoss/Gain
    */
-  //log.debug('candle',candle);
+  log.debug('candle',candle);
   //log.debug('**** age ****',this.age);
 
   if (this.aggPrevClose.min5 === null || this.aggPrevClose.min15 === null) {
@@ -278,7 +278,8 @@ method.update = function(candle) {
           //N = number of days in EMA, k = 2 / (N+1)
           let k = 2 / (Number.parseInt(this.size.k) + 1);
           //EMA = Value(t) * k + EMA(t-1) * (1 – k)
-          this.aggPrevAvg.min5.k = this.aggAvgK.min5.slice(-1)[0] * k + this.aggPrevAvg.min5.k * (1 - k);
+          //this.aggPrevAvg.min5.k = this.aggAvgK.min5.slice(-1)[0] * k + this.aggPrevAvg.min5.k * (1 - k);
+          this.aggPrevAvg.min5.k = (Number.parseFloat(this.aggAvgK.min5.slice(-1)[0]) + this.aggPrevAvg.min5.k * (this.size.k - 1))/this.size.k;
         }
         //Saving current %K and %D
         this.aggStochRSI.min5.k = this.aggPrevAvg.min5.k;
@@ -292,7 +293,8 @@ method.update = function(candle) {
           //N = number of days in EMA, k = 2 / (N+1)
           let k = 2 / (Number.parseInt(this.size.k) + 1);
           //EMA = Value(t) * k + EMA(t-1) * (1 – k)
-          this.aggPrevAvg.min15.k = this.aggAvgK.min15.slice(-1)[0] * k + this.aggPrevAvg.min15.k * (1 - k);
+          //this.aggPrevAvg.min15.k = this.aggAvgK.min15.slice(-1)[0] * k + this.aggPrevAvg.min15.k * (1 - k);
+          this.aggPrevAvg.min15.k = (Number.parseFloat(this.aggAvgK.min15.slice(-1)[0]) + this.aggPrevAvg.min15.k * (this.size.k - 1))/this.size.k;
         }
         //Saving current %K and %D
         this.aggStochRSI.min15.k = this.aggPrevAvg.min15.k;
@@ -332,7 +334,8 @@ method.update = function(candle) {
     }
     let k = 2 / (this.size.k + 1);
     //Saving current %K and %D
-    this.aggStochRSI.min5.k = stochrsi * k + this.aggPrevAvg.min5.k * (1 - k);
+    //this.aggStochRSI.min5.k = stochrsi * k + this.aggPrevAvg.min5.k * (1 - k);
+    this.aggStochRSI.min5.k = (Number.parseFloat(stochrsi) + this.aggPrevAvg.min5.k * (this.size.k - 1))/this.size.k;
 
     //Aggregated 15 min Stochastic RSI %K full
     if (candle.close > this.aggPrevClose.min15) {
@@ -364,7 +367,8 @@ method.update = function(candle) {
     }
     k = 2 / (this.size.k + 1);
     //Saving current %K and %D
-    this.aggStochRSI.min15.k = stochrsi * k + this.aggPrevAvg.min15.k * (1 - k);
+    //this.aggStochRSI.min15.k = stochrsi * k + this.aggPrevAvg.min15.k * (1 - k);
+    this.aggStochRSI.min15.k = (Number.parseFloat(stochrsi) + this.aggPrevAvg.min15.k * (this.size.k - 1))/this.size.k;
 
     /*log.debug('---- Moving ----');
     log.debug('candle.close', candle.close.toFixed(this.digits));

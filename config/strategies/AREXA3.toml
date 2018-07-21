@@ -7,6 +7,8 @@ d = 3
 
 [superk]
 xmin = 15
+avgK = 3
+avgD = 3
 
 
 [thresholds]
