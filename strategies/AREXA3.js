@@ -27,6 +27,24 @@ method.calculateAverage = function(values) {
 };
 
 /**
+ *
+ * @param {array} candles
+ * @returns {number}
+ */
+method.calculateAvgAll = function (candles) {
+  //log.debug('candles',candles);
+  let open = candles[0].open;
+  //log.debug('open',open.toFixed(this.digits));
+  let high = candles.reduce((max,candle) => Math.max(max, candle.high),candles[0].high);
+  //log.debug('high',high.toFixed(this.digits));
+  let low = candles.reduce((min,candle) => Math.min(min, candle.low),candles[0].low);
+  //log.debug('low',low.toFixed(this.digits));
+  let close = (candles.slice(-1)[0]).close;
+  //log.debug('close',close.toFixed(this.digits));
+  return ((Number.parseFloat(open) + Number.parseFloat(high) + Number.parseFloat(low) + Number.parseFloat(close)) / 4);
+};
+
+/**
  * Calculating Exponential Moving Average
  * @param {array} values
  * @param {number} lastvalue
@@ -47,7 +65,7 @@ method.calculateEMA = function(values,lastvalue = null) {
 };
 
 /**
- * Calculating Wilder's Movind Average
+ * Calculating Wilder's Moving Average
  * @param {array} values
  * @param {number} lastvalue
  * @returns {number} float
@@ -112,193 +130,59 @@ method.calculateStochastic = function(min = 0, max = 0, rsi = 0) {
  */
 /**
  *
- * @param {number} input Amiből számolunk StochRSI-t
- * @param {number} candleId Hányadik percben járunk
+ * @param {number} input
  * @param {array} indicatorValuesStore
- * @param {number} minute hány perces átlagot akarunk
- * @param {number} offset eltolás ha többet akarunk számolni
- * @param {number} avg EMA vagy Wilder //TODO nincs kész
+ * @param {Object} size
+ * @returns {number}
  */
-method.calculateXMinuteMovingIndicator = function (
+method.calculateStochasticRSI = function (
   input,  //input data
-  candleId, //age
   indicatorValuesStore = [],  //object for storing temporary data and results
-  minute=5, //x minute average candle
-  offset=0,  //if we one multiple X minutes value (0 <-> minute-1)
-  avg = 0   //0 = EMA 1 = Wilder
+  size = {rsi:14,stoch:9}
 ) {
   //log.debug('input',input);
-  //log.debug('candleId',candleId);
   //log.debug('indicatorValuesStore',indicatorValuesStore);
-  //log.debug('minute',minute);
-  //log.debug('offset',offset);
 
-  if (indicatorValuesStore[offset].previousValue === null) {
-    indicatorValuesStore[offset].previousValue = input;
+  if (indicatorValuesStore.previousValue === null) {
+    indicatorValuesStore.previousValue = input;
   }
   let gain, loss, rsi;
-  if (input > indicatorValuesStore[offset].previousValue) {
-    gain = input - indicatorValuesStore[offset].previousValue;
+  if (input > indicatorValuesStore.previousValue) {
+    gain = input - indicatorValuesStore.previousValue;
     loss = 0;
   } else {
     gain = 0;
-    loss = indicatorValuesStore[offset].previousValue - input;
+    loss = indicatorValuesStore.previousValue - input;
   }
   //Minden X-ik elemet elmentjük
-  if (candleId % minute === offset) {
-    //Save X. input
-    indicatorValuesStore[offset].previousValue = input;
-    //RSI start
-    indicatorValuesStore[offset].gains.push(gain);
-    indicatorValuesStore[offset].losses.push(loss);
-    if (indicatorValuesStore[offset].losses.length === this.size.rsi) {
-      indicatorValuesStore[offset].gainWilderAvg = this.calculateWilder(
-        indicatorValuesStore[offset].gains,
-        indicatorValuesStore[offset].gainWilderAvg);
-      indicatorValuesStore[offset].lossWilderAvg = this.calculateWilder(
-        indicatorValuesStore[offset].losses,
-        indicatorValuesStore[offset].lossWilderAvg);
-      rsi = this.calculateRSI(
-        indicatorValuesStore[offset].gainWilderAvg,
-        indicatorValuesStore[offset].lossWilderAvg
-      );
-      indicatorValuesStore[offset].gains.shift();
-      indicatorValuesStore[offset].losses.shift();
-      //RSI end
-      //Stochastic start
-      indicatorValuesStore[offset].rsis.push(rsi);
-      if (indicatorValuesStore[offset].rsis.length === this.size.stoch) {
-        let min = _.min(indicatorValuesStore[offset].rsis);
-        let max = _.max(indicatorValuesStore[offset].rsis);
-        indicatorValuesStore[offset].k.push(this.calculateStochastic(min,max,rsi));
-        indicatorValuesStore[offset].rsis.shift();
-        //Stochastic end
-        //%K start
-        if (indicatorValuesStore[offset].k.length === this.size.k) {
-          switch (avg) {
-            case 0:
-              //EMA
-              indicatorValuesStore[offset].avgK = this.calculateEMA(
-                indicatorValuesStore[offset].k,
-                indicatorValuesStore[offset].avgK);
-              break;
-            case 1:
-              //Wilder
-              indicatorValuesStore[offset].avgK = this.calculateWilder(
-                indicatorValuesStore[offset].k,
-                indicatorValuesStore[offset].avgK);
-              break;
-          }
-          indicatorValuesStore[offset].k.shift();
-          //%K end
-          //%D start
-          indicatorValuesStore[offset].d.push(indicatorValuesStore[offset].avgK);
-          if (indicatorValuesStore[offset].d.length === this.size.d) {
-            switch (avg) {
-              case 0:
-                //EMA
-                indicatorValuesStore[offset].avgD = this.calculateEMA(
-                  indicatorValuesStore[offset].d,
-                  indicatorValuesStore[offset].avgD);
-                break;
-              case 1:
-                //Wilder
-                indicatorValuesStore[offset].avgD = this.calculateWilder(
-                  indicatorValuesStore[offset].d,
-                  indicatorValuesStore[offset].avgD);
-                break;
-            }
-            indicatorValuesStore[offset].d.shift();
-            //Saving results
-            /*this.indicatorResults[offset].superK = indicatorValuesStore[offset].avgK;
-            this.indicatorResults[offset].superD = indicatorValuesStore[offset].avgD;*/
-            //log.debug('indicatorValuesStore[offset].avgK',indicatorValuesStore[offset].avgK);
-            //log.debug('indicatorValuesStore[offset].avgD',indicatorValuesStore[offset].avgD);
-            log.debug('indicatorValuesStore[offset].k',indicatorValuesStore[offset].k);
-            log.debug('indicatorValuesStore[offset].d',indicatorValuesStore[offset].d);
-            indicatorValuesStore[offset].movAvgK = indicatorValuesStore[offset].avgK;
-            indicatorValuesStore[offset].movAvgD = indicatorValuesStore[offset].avgD;
-            return {
-              superK: indicatorValuesStore[offset].avgK,
-              superD: indicatorValuesStore[offset].avgD
-            };
-          }
-          //%D end
-        }
-      }
-    }
-  } else if (indicatorValuesStore[offset].d.avgD !== null) {
-    //Moving start
-    if (indicatorValuesStore[offset].movAvgK === null || indicatorValuesStore[offset].movAvgD === null) {
-      indicatorValuesStore[offset].movAvgK = indicatorValuesStore[offset].avgK;
-      indicatorValuesStore[offset].movAvgD = indicatorValuesStore[offset].avgD;
-    }
-    log.debug('----moving----');
-
-    //RSI start
-    let gainWilderAvg = this.calculateWilder(
-      indicatorValuesStore[offset].gains.concat(gain),
-      indicatorValuesStore[offset].gainWilderAvg);
-    let lossWilderAvg = this.calculateWilder(
-      indicatorValuesStore[offset].losses.concat(loss),
-      indicatorValuesStore[offset].lossWilderAvg);
-    rsi = this.calculateRSI(gainWilderAvg, lossWilderAvg);
+  //Save X. input
+  indicatorValuesStore.previousValue = input;
+  //RSI start
+  indicatorValuesStore.gains.push(gain);
+  indicatorValuesStore.losses.push(loss);
+  if (indicatorValuesStore.losses.length === size.rsi) {
+    indicatorValuesStore.gainWilderAvg = this.calculateWilder(
+      indicatorValuesStore.gains,
+      indicatorValuesStore.gainWilderAvg);
+    indicatorValuesStore.lossWilderAvg = this.calculateWilder(
+      indicatorValuesStore.losses,
+      indicatorValuesStore.lossWilderAvg);
+    rsi = this.calculateRSI(
+      indicatorValuesStore.gainWilderAvg,
+      indicatorValuesStore.lossWilderAvg
+    );
+    indicatorValuesStore.gains.shift();
+    indicatorValuesStore.losses.shift();
     //RSI end
     //Stochastic start
-    let min = _.min(indicatorValuesStore[offset].rsis.concat(rsi));
-    let max = _.max(indicatorValuesStore[offset].rsis.concat(rsi));
-    log.debug('indicatorValuesStore[offset].rsis.concat(rsi)', indicatorValuesStore[offset].rsis.concat(rsi));
-    let stochrsi = this.calculateStochastic(min, max, rsi);
-    //Stochastic end
-    //%K start
-    let avgK = 0;
-    switch (avg) {
-      case 0:
-        //EMA
-        avgK = this.calculateEMA(
-          indicatorValuesStore[offset].k.concat(stochrsi),
-          indicatorValuesStore[offset].movAvgK);
-        break;
-      case 1:
-        //Wilder
-        avgK = this.calculateWilder(
-          indicatorValuesStore[offset].k.concat(stochrsi),
-          indicatorValuesStore[offset].movAvgK);
-        break;
+    indicatorValuesStore.rsis.push(rsi);
+    if (indicatorValuesStore.rsis.length === size.stoch) {
+      let min = _.min(indicatorValuesStore.rsis);
+      let max = _.max(indicatorValuesStore.rsis);
+      indicatorValuesStore.rsis.shift();
+      return this.calculateStochastic(min,max,rsi);
+      //Stochastic end
     }
-    indicatorValuesStore[offset].movAvgK = avgK;
-    //%K end
-    //%D start
-    let avgD = 0;
-    switch (avg) {
-      case 0:
-        //EMA
-        avgD = this.calculateEMA(
-          indicatorValuesStore[offset].d.concat(avgK),
-          indicatorValuesStore[offset].movAvgD);
-        break;
-      case 1:
-        //Wilder
-        avgD = this.calculateWilder(
-          indicatorValuesStore[offset].d.concat(avgK),
-          indicatorValuesStore[offset].movAvgD);
-        //log.debug('wilderavgD',avgD);
-        break;
-    }
-    indicatorValuesStore[offset].movAvgK = avgK;
-    indicatorValuesStore[offset].movAvgD = avgD;
-    //%D end
-    //Saving results
-    /*this.indicatorResults[offset].superK = avgK;
-    this.indicatorResults[offset].superD = avgD;*/
-    //log.debug('avgK',avgK);
-    log.debug('indicatorValuesStore[offset].k.concat(stochrsi)', indicatorValuesStore[offset].k.concat(stochrsi));
-    log.debug('indicatorValuesStore[offset].d.concat(avgK)', indicatorValuesStore[offset].d.concat(avgK));
-    log.debug('avgD', avgD);
-    return {
-      superK: avgK,
-      superD: avgD,
-    };
   }
 };
 
@@ -374,42 +258,45 @@ method.init = function() {
     gainWilderAvg: null,
     losses: [],
     lossWilderAvg: null,
-    rsis: [],
-    k: [],
-    avgK: null,
-    movAvgK: null,
-    d: [],
-    avgD:null,
-    movAvgD: null
+    rsis: []
   });
   //log.debug('INIT ---this.indicatorValues',this.indicatorValues);
-  this.oneMinuteValues = [];
-  this.oneMinuteValues.push(JSON.parse(this.indicatorValues));
+  //this.oneMinuteValues = [];
+  this.oneMinuteValues = JSON.parse(this.indicatorValues);
   //log.debug('INIT ---this.oneMinuteValues',this.oneMinuteValues);
 
-  this.fiveMinuteValues = [];
-  while (this.fiveMinuteValues.length < 5) {
-    this.fiveMinuteValues.push(JSON.parse(this.indicatorValues));
-  }
+  //this.fiveMinuteValues = [];
+  //while (this.fiveMinuteValues.length < 5) {
+    this.fiveMinuteValues = JSON.parse(this.indicatorValues);
+  //}
   log.debug('INIT ---this.fiveMinuteValues',this.fiveMinuteValues.length);
 
-  this.xMinuteValues = [];
-  while (this.xMinuteValues.length < this.size.xmin) {
-    this.xMinuteValues.push(JSON.parse(this.indicatorValues));
-  }
+  //this.xMinuteValues = [];
+  //while (this.xMinuteValues.length < this.size.xmin) {
+    this.xMinuteValues = JSON.parse(this.indicatorValues);
+  //}
   log.debug('INIT ---this.xMinuteValues',this.xMinuteValues.length);
 
-  this.indicatorResults = {
+  this.candleStore = {
+    five: [],
+    xmin: []
+  };
+  this.currentAvgAll = {
+    one:0,
+    five:0,
+    xmin:0
+  };
+  /*this.indicatorResults = {
     one: {},
     five: {},
     xmin: {}
+  };*/
+  this.indicatorResults = {
+    one: 0,
+    five: 0,
+    xmin: 0
   };
-  this.avgall = {
-    k:[],
-    avgK: null,
-    d:[],
-    avgD: null
-  };
+
   this.zone = 0;
   this.distance = {
     sD5dist: 0,
@@ -436,53 +323,40 @@ method.init = function() {
   }
   this.fd = fs.openSync(filename,'a');
   fs.appendFileSync(this.fd,
-    "start;age;open;high;low;close;avgall;1minemaK;1minemaD;5minwildK;5minwildD;" +
-    "XminwildK;XminwildD;avgall_K;avgall_D;sD5dist;avgallD_dist;avgallD_distdist;muvelet\n",
+    "start;age;open;high;low;close;1minavgall;5minavgall;Xminavgall;1misrsi;5misrsi;Xmisrsi\n",
     'utf8');
   this.sor = '';
-}
+};
 
 // what happens on every new candle?
 method.update = function(candle) {
   //TODO update
-  let avgall = (candle.open + candle.low + candle.high + candle.close) / 4;
+  log.debug('update age', this.age);
+  //1 perces
+  this.currentAvgAll.one = this.calculateAvgAll([candle]);
+  this.indicatorResults.one = this.calculateStochasticRSI(
+    this.currentAvgAll.one,
+    this.oneMinuteValues, this.size);
 
-  this.indicatorResults.one =
-    this.calculateXMinuteMovingIndicator(avgall, this.age,this.oneMinuteValues,1,0,0);
-  /*if (this.indicatorResults.five !== null) {
-    let prevFiveavgD = this.indicatorResults.five.superD;
-  }*/
-  this.indicatorResults.five =
-    this.calculateXMinuteMovingIndicator(avgall, this.age,this.fiveMinuteValues,5,0,0);
-  this.indicatorResults.xmin =
-    this.calculateXMinuteMovingIndicator(avgall, this.age,this.xMinuteValues,this.size.xmin,0,0);
-
-  //log.debug('this.indicatorResults.one',this.indicatorResults.one);
-  log.debug('this.indicatorResults.five',this.indicatorResults.five);
-  //log.debug('this.indicatorResults.xmin',this.indicatorResults.xmin);
-/*
-  this.avgall.k.push(avgall);
-  if (this.avgall.k.length === this.size.avgk) {
-    this.avgall.avgK = this.calculateWilder(this.avgall.k,this.avgall.avgK);
-    this.avgall.k.shift();
-    this.avgall.d.push(this.avgall.avgK);
-    if (this.avgall.d.length === this.size.avgd) {
-      if (this.avgall.avgD !== null) {
-        let prevAvgallavgD = this.avgall.avgD;
-      }
-      this.avgall.avgD = this.calculateWilder(this.avgall.d,this.avgall.avgD);
-      this.avgall.d.shift();
-      if (this.distance.avgallD_dist) {
-        let prevavgallD_dist = this.distance.avgallD_dist;
-      }
-      this.distance.avgallD_dist = this.calculateDistance(prevAvgallavgD,this.avgall.avgD);
-      this.distance.avgallD_distdist = this.calculateDistance(prevavgallD_dist,this.distance.avgallD_dist);
-      this.distance.sD5dist = this.calculateDistance(prevFiveavgD,this.indicatorResults.five.superD);
-
-
-
-    }
-  }*/
+  //5 perces
+  this.candleStore.five.push(candle);
+  if (this.candleStore.five.length === 5) {
+    this.currentAvgAll.five = this.calculateAvgAll(this.candleStore.five);
+    log.debug('this.currentAvgAll.five',this.currentAvgAll.five);
+    this.indicatorResults.five = this.calculateStochasticRSI(
+      this.currentAvgAll.five,
+      this.fiveMinuteValues, this.size);
+    this.candleStore.five.shift();
+  }
+  //X perces
+  this.candleStore.xmin.push(candle);
+  if (this.candleStore.xmin.length === this.size.xmin) {
+    this.currentAvgAll.xmin = this.calculateAvgAll(this.candleStore.xmin);
+    this.indicatorResults.xmin = this.calculateStochasticRSI(
+      this.currentAvgAll.xmin,
+      this.xMinuteValues, this.size);
+    this.candleStore.xmin.shift();
+  }
 };
 
 // for debugging purposes log the last
@@ -496,10 +370,8 @@ method.log = function(candle) {
   }
 
   let d = new Date(candle.start);
-  let avgall = (candle.open + candle.high + candle.low + candle.close)/4;
 
-  //"start;age;open;high;low;close;avgall;1minemaK;1minemaD;5minwildK;5minwildD;" +
-  //"XminwildK;XminwildD;avgall_K;avgall_D;sD5dist;avgallD_dist;avgallD_distdist;muvelet\n",
+  //    "start;age;open;high;low;close;1minavgall;5minavgall;Xminavgall;1misrsi;5misrsi;Xmisrsi\n",
   this.sor = '"' +
     d.getFullYear() + '-' + (Number.parseInt(d.getMonth())+1) + '-' +d.getDate() + ' ' +
     d.toLocaleTimeString('hu-HU') + '";' + this.age + ';' +
@@ -507,19 +379,13 @@ method.log = function(candle) {
     candle.high.toFixed(this.digits).replace(".", ",") + ';' +
     candle.low.toFixed(this.digits).replace(".", ",") + ';' +
     candle.close.toFixed(this.digits).replace(".", ",") + ';' +
-    avgall.toFixed(this.digits).replace(".", ",") + ';' +
-    this.indicatorResults.one.superK.toFixed(this.digits).replace(".", ",") + ';' +
-    this.indicatorResults.one.superD.toFixed(this.digits).replace(".", ",") + ';' +
-    this.indicatorResults.five.superK.toFixed(this.digits).replace(".", ",") + ';' +
-    this.indicatorResults.five.superD.toFixed(this.digits).replace(".", ",") + ';' +
-    this.indicatorResults.xmin.superK.toFixed(this.digits).replace(".", ",") + ';' +
-    this.indicatorResults.xmin.superD.toFixed(this.digits).replace(".", ",") + ';';/* +
-    this.avgall.avgK.toFixed(this.digits * 2).replace(".", ",") + ';' +
-    this.avgall.avgD.toFixed(this.digits * 2).replace(".", ",") + ';' +
-    this.distance.sD5dist.toFixed(this.digits).replace(".", ",") + ';' +
-    this.distance.avgallD_dist.toFixed(this.digits).replace(".", ",") + ';' +
-    this.distance.avgallD_distdist.toFixed(this.digits).replace(".", ",") + ';';*/
-  //if(this.age == 450) {exit(1);}
+    this.currentAvgAll.one.toFixed(this.digits * 2).replace(".", ",") + ';' +
+    this.currentAvgAll.five.toFixed(this.digits * 2).replace(".", ",") + ';' +
+    this.currentAvgAll.xmin.toFixed(this.digits * 2).replace(".", ",") + ';' +
+    this.indicatorResults.one.toFixed(this.digits).replace(".", ",") + ';' +
+    this.indicatorResults.five.toFixed(this.digits).replace(".", ",") + ';' +
+    this.indicatorResults.xmin.toFixed(this.digits).replace(".", ",") + ';';
+
 };
 
 method.check = function(candle) {
