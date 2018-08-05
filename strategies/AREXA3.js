@@ -96,7 +96,7 @@ method.calculateRSI = function (gain = 0,loss = 0) {
     rsi = 0;
   } else {
     let rs = gain / loss;
-    rsi = 100 - 100 / (1 + Number.parseFloat(rs));
+    rsi = 100 - 100 / (1.0 + Number.parseFloat(rs));
   }
   return Number.parseFloat(rsi);
 };
@@ -131,22 +131,24 @@ method.calculateStochastic = function(min = 0, max = 0, rsi = 0) {
 /**
  *
  * @param {number} input
+ * @param {number} candleId
  * @param {array} indicatorValuesStore
+ * @param {number} minute
  * @param {Object} size
  * @returns {number}
  */
 method.calculateStochasticRSI = function (
   input,  //input data
+  candleId, //age
   indicatorValuesStore = [],  //object for storing temporary data and results
+  minute=5, //x minute average candle
   size = {rsi:14,stoch:9}
-) {
-  //log.debug('input',input);
-  //log.debug('indicatorValuesStore',indicatorValuesStore);
-
+)
+{
   if (indicatorValuesStore.previousValue === null) {
     indicatorValuesStore.previousValue = input;
   }
-  let gain, loss, rsi;
+  let gain, loss, rsi, srsi = 0;
   if (input > indicatorValuesStore.previousValue) {
     gain = input - indicatorValuesStore.previousValue;
     loss = 0;
@@ -154,36 +156,62 @@ method.calculateStochasticRSI = function (
     gain = 0;
     loss = indicatorValuesStore.previousValue - input;
   }
+  log.debug('gain',gain);
+  log.debug('loss',loss);
   //Minden X-ik elemet elmentjük
-  //Save X. input
-  indicatorValuesStore.previousValue = input;
-  //RSI start
-  indicatorValuesStore.gains.push(gain);
-  indicatorValuesStore.losses.push(loss);
-  if (indicatorValuesStore.losses.length === size.rsi) {
-    indicatorValuesStore.gainWilderAvg = this.calculateWilder(
-      indicatorValuesStore.gains,
-      indicatorValuesStore.gainWilderAvg);
-    indicatorValuesStore.lossWilderAvg = this.calculateWilder(
-      indicatorValuesStore.losses,
-      indicatorValuesStore.lossWilderAvg);
-    rsi = this.calculateRSI(
-      indicatorValuesStore.gainWilderAvg,
-      indicatorValuesStore.lossWilderAvg
-    );
-    indicatorValuesStore.gains.shift();
-    indicatorValuesStore.losses.shift();
-    //RSI end
-    //Stochastic start
-    indicatorValuesStore.rsis.push(rsi);
-    if (indicatorValuesStore.rsis.length === size.stoch) {
-      let min = _.min(indicatorValuesStore.rsis);
-      let max = _.max(indicatorValuesStore.rsis);
-      indicatorValuesStore.rsis.shift();
-      return this.calculateStochastic(min,max,rsi);
-      //Stochastic end
+  if (candleId % minute === 0) {
+    //Save X. input
+    indicatorValuesStore.previousValue = input;
+    //RSI start
+    indicatorValuesStore.gains.push(gain);
+    indicatorValuesStore.losses.push(loss);
+    if (indicatorValuesStore.losses.length === size.rsi) {
+      indicatorValuesStore.gainWilderAvg = this.calculateWilder(
+        indicatorValuesStore.gains,
+        indicatorValuesStore.gainWilderAvg);
+      indicatorValuesStore.lossWilderAvg = this.calculateWilder(
+        indicatorValuesStore.losses,
+        indicatorValuesStore.lossWilderAvg);
+      rsi = this.calculateRSI(
+        indicatorValuesStore.gainWilderAvg,
+        indicatorValuesStore.lossWilderAvg
+      );
+      indicatorValuesStore.gains.shift();
+      indicatorValuesStore.losses.shift();
+      //RSI end
+      //Stochastic start
+      indicatorValuesStore.rsis.push(rsi);
+      if (indicatorValuesStore.rsis.length === size.stoch) {
+        let min = _.min(indicatorValuesStore.rsis);
+        let max = _.max(indicatorValuesStore.rsis);
+        srsi = this.calculateStochastic(min, max, rsi);
+        indicatorValuesStore.rsis.shift();
+        //Stochastic end
+      }
     }
+  } else if (indicatorValuesStore.rsis.length === (size.stoch - 1)) {
+    log.debug('---moving---',minute);
+    log.debug('indicatorValuesStore.previousValue',indicatorValuesStore.previousValue);
+    log.debug('input',input);
+    let gainavg = this.calculateWilder(
+      indicatorValuesStore.gains.concat(gain),
+      indicatorValuesStore.gainWilderAvg);
+    let lossavg = this.calculateWilder(
+      indicatorValuesStore.losses.concat(loss),
+      indicatorValuesStore.lossWilderAvg);
+    log.debug('gainavg',gainavg);
+    log.debug('lossavg',lossavg);
+    rsi = this.calculateRSI(gainavg,lossavg);
+    log.debug('rsi',rsi);
+    let min = _.min(indicatorValuesStore.rsis.concat(rsi));
+    let max = _.max(indicatorValuesStore.rsis.concat(rsi));
+    log.debug('indicatorValuesStore.rsis.concat(rsi)',indicatorValuesStore.rsis.concat(rsi));
+    log.debug('min',min);
+    log.debug('max',max);
+    srsi = this.calculateStochastic(min, max, rsi);
+    log.debug('stoch',srsi);
   }
+  return srsi;
 };
 
 /**
@@ -336,7 +364,10 @@ method.update = function(candle) {
   this.currentAvgAll.one = this.calculateAvgAll([candle]);
   this.indicatorResults.one = this.calculateStochasticRSI(
     this.currentAvgAll.one,
-    this.oneMinuteValues, this.size);
+    this.age,
+    this.oneMinuteValues,
+    1,
+    this.size);
 
   //5 perces
   this.candleStore.five.push(candle);
@@ -345,7 +376,10 @@ method.update = function(candle) {
     log.debug('this.currentAvgAll.five',this.currentAvgAll.five);
     this.indicatorResults.five = this.calculateStochasticRSI(
       this.currentAvgAll.five,
-      this.fiveMinuteValues, this.size);
+      this.age,
+      this.fiveMinuteValues,
+      5,
+      this.size);
     this.candleStore.five.shift();
   }
   //X perces
@@ -354,7 +388,10 @@ method.update = function(candle) {
     this.currentAvgAll.xmin = this.calculateAvgAll(this.candleStore.xmin);
     this.indicatorResults.xmin = this.calculateStochasticRSI(
       this.currentAvgAll.xmin,
-      this.xMinuteValues, this.size);
+      this.age,
+      this.xMinuteValues,
+      this.size.xmin,
+      this.size);
     this.candleStore.xmin.shift();
   }
 };
