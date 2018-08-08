@@ -398,7 +398,8 @@ method.init = function() {
   }
   this.fd = fs.openSync(filename,'a');
   fs.appendFileSync(this.fd,
-    "start;age;open;high;low;close;1minavgall;5minavgall;Xminavgall;1misrsi;5misrsi;Xmisrsi;5minK;5minD\n",
+    "start;age;open;high;low;close;1minavgall;5minavgall;Xminavgall;" +
+    "1misrsi;5misrsi;Xmisrsi;1minK;1minD;5minK;5minD;XminK;XminD\n",
     'utf8');
   this.sor = '';
 };
@@ -415,12 +416,28 @@ method.update = function(candle) {
     this.oneMinuteValues,
     1,
     this.size);
+  this.indicatorResults.one.k = this.oneMinuteValues.avgK = this.calculateSuper(
+    this.indicatorResults.one.rsi,
+    this.oneMinuteValues,
+    'k',
+    this.size.k,
+    0
+  );
+  if (!isNaN(this.oneMinuteValues.avgK) && this.oneMinuteValues.avgK !== null) {
+    this.indicatorResults.one.d = this.oneMinuteValues.avgD = this.calculateSuper(
+      this.oneMinuteValues.avgK,
+      this.oneMinuteValues,
+      'd',
+      this.size.d,
+      0
+    );
+  }
 
   //5 perces
   this.candleStore.five.push(candle);
   if (this.candleStore.five.length === 5) {
     this.currentAvgAll.five = this.calculateAvgAll(this.candleStore.five);
-    log.debug('this.currentAvgAll.five',this.currentAvgAll.five);
+    log.debug('this.currentAvgAll.five', this.currentAvgAll.five);
     this.indicatorResults.five.rsi = this.calculateStochasticRSI(
       this.currentAvgAll.five,
       this.age,
@@ -428,22 +445,22 @@ method.update = function(candle) {
       5,
       this.size);
     this.candleStore.five.shift();
-  }
-  this.indicatorResults.five.k = this.fiveMinuteValues.avgK = this.calculateSuper(
-    this.indicatorResults.five.rsi,
-    this.fiveMinuteValues,
-    'k',
-    this.size.k,
-    1
-  );
-  if (!isNaN(this.fiveMinuteValues.avgK) && this.fiveMinuteValues.avgK !== null) {
-    this.indicatorResults.five.d = this.fiveMinuteValues.avgD = this.calculateSuper(
-      this.fiveMinuteValues.avgK,
+    this.indicatorResults.five.k = this.fiveMinuteValues.avgK = this.calculateSuper(
+      this.indicatorResults.five.rsi,
       this.fiveMinuteValues,
-      'd',
-      this.size.d,
+      'k',
+      this.size.k,
       1
     );
+    if (!isNaN(this.fiveMinuteValues.avgK) && this.fiveMinuteValues.avgK !== null) {
+      this.indicatorResults.five.d = this.fiveMinuteValues.avgD = this.calculateSuper(
+        this.fiveMinuteValues.avgK,
+        this.fiveMinuteValues,
+        'd',
+        this.size.d,
+        1
+      );
+    }
   }
   //X perces
   this.candleStore.xmin.push(candle);
@@ -456,6 +473,22 @@ method.update = function(candle) {
       this.size.xmin,
       this.size);
     this.candleStore.xmin.shift();
+    this.indicatorResults.xmin.k = this.xMinuteValues.avgK = this.calculateSuper(
+      this.indicatorResults.xmin.rsi,
+      this.xMinuteValues,
+      'k',
+      this.size.k,
+      1
+    );
+    if (!isNaN(this.xMinuteValues.avgK) && this.xMinuteValues.avgK !== null) {
+      this.indicatorResults.xmin.d = this.xMinuteValues.avgD = this.calculateSuper(
+        this.xMinuteValues.avgK,
+        this.xMinuteValues,
+        'd',
+        this.size.d,
+        1
+      );
+    }
   }
 };
 
@@ -485,8 +518,12 @@ method.log = function(candle) {
     this.indicatorResults.one.rsi.toFixed(this.digits).replace(".", ",") + ';' +
     this.indicatorResults.five.rsi.toFixed(this.digits).replace(".", ",") + ';' +
     this.indicatorResults.xmin.rsi.toFixed(this.digits).replace(".", ",") + ';' +
+    this.indicatorResults.one.k.toFixed(this.digits).replace(".", ",") + ';' +
+    this.indicatorResults.one.d.toFixed(this.digits).replace(".", ",") + ';' +
     this.indicatorResults.five.k.toFixed(this.digits).replace(".", ",") + ';' +
-    this.indicatorResults.five.d.toFixed(this.digits).replace(".", ",") + ';';
+    this.indicatorResults.five.d.toFixed(this.digits).replace(".", ",") + ';' +
+    this.indicatorResults.xmin.k.toFixed(this.digits).replace(".", ",") + ';' +
+    this.indicatorResults.xmin.d.toFixed(this.digits).replace(".", ",") + ';';
 
 };
 
