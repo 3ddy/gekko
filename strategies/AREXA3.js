@@ -2,7 +2,9 @@
 var _ = require('lodash');
 var log = require('../core/log');
 var fs = require('fs');
-
+// const WebSocket = require('ws');
+// const wss = new WebSocket.Server({ port: 3001 });
+const server = require('../web/server');
 var SO = require('./indicators/SO.js');
 // let's create our own method
 var method = {};
@@ -326,6 +328,7 @@ method.init = function() {
     "start;age;open;high;low;close;1minavgall;5minavgall;Xminavgall;1misrsi;5misrsi;Xmisrsi\n",
     'utf8');
   this.sor = '';
+
 };
 
 // what happens on every new candle?
@@ -386,6 +389,27 @@ method.log = function(candle) {
     this.indicatorResults.five.toFixed(this.digits).replace(".", ",") + ';' +
     this.indicatorResults.xmin.toFixed(this.digits).replace(".", ",") + ';';
 
+  this.broadcastMessage = {
+    start: `${d.getFullYear()}-${Number.parseInt(d.getMonth())+1}-${d.getDate()} ${d.toLocaleTimeString('hu-HU')}`,
+    age: this.age,
+    candle: {
+      open: candle.open.toFixed(this.digits),
+      high: candle.high.toFixed(this.digits),
+      low: candle.low.toFixed(this.digits),
+      close: candle.close.toFixed(this.digits)
+    },
+    avgAll: {
+      one: this.currentAvgAll.one.toFixed(this.digits * 2),
+      five: this.currentAvgAll.five.toFixed(this.digits * 2),
+      xmin: this.currentAvgAll.xmin.toFixed(this.digits * 2)
+    },
+    rsi: {
+      oneMin: this.indicatorResults.one.toFixed(this.digits),
+      fiveMin: this.indicatorResults.five.toFixed(this.digits).replace(".", ","),
+      xmin: this.indicatorResults.xmin.toFixed(this.digits).replace(".", ",")
+    }};  
+
+    server.broadcast(this.broadcastMessage);
 };
 
 method.check = function(candle) {
